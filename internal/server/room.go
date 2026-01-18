@@ -1,33 +1,34 @@
-package main
+package server
 
 import (
 	"fmt"
-	"github.com/gorilla/websocket"
 	"log"
 	"math/rand"
 	"net/http"
 	"sync"
+
+	"github.com/gorilla/websocket"
 )
 
-type room struct {
+type Room struct {
 
 	// hold all current clients in the room
-	clients map[*client]bool
+	clients map[*Client]bool
 
 	// join is a channel for all clients wishing to join this room
-	join chan *client
+	join chan *Client
 
 	// leave is channel for all clients wishing to join this room
-	leave chan *client
+	leave chan *Client
 
 	// forward is a channel that holds incoming messages that should be forwarded to  other clients
 	forward chan []byte
 }
 
-var rooms = make(map[string]*room)
+var rooms = make(map[string]*Room)
 var mu sync.Mutex
 
-func getRoom(name string) *room {
+func GetRoom(name string) *Room {
 
 	// prevent creating a room with the same name when multiple users do that at the same time
 	mu.Lock()
@@ -44,17 +45,17 @@ func getRoom(name string) *room {
 	return r
 }
 
-func newRoom() *room {
-	return &room{
+func newRoom() *Room {
+	return &Room{
 		forward: make(chan []byte),
-		join:    make(chan *client),
-		leave:   make(chan *client),
-		clients: make(map[*client]bool),
+		join:    make(chan *Client),
+		leave:   make(chan *Client),
+		clients: make(map[*Client]bool),
 	}
 }
 
 // each room is a separate thread that should be run independently (but as long as the main server is running)
-func (r *room) run() {
+func (r *Room) run() {
 	for {
 		select {
 		// adding a user to a channel
@@ -81,31 +82,31 @@ const (
 
 var upGrader = &websocket.Upgrader{ReadBufferSize: socketBufferSize, WriteBufferSize: messageBufferSize}
 
-func (r *room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (r *Room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	roomName := req.URL.Query().Get("room")
 	if len(roomName) == 0 {
 		http.Error(w, "Room name required", http.StatusBadRequest)
+		return
 	}
 
-	realRoom := getRoom(roomName)
+	realRoom := GetRoom(roomName)
 
 	// Create socket
 	socket, err := upGrader.Upgrade(w, req, nil)
 	if err != nil {
-		log.Fatal("ServerHTTP:", err)
+		log.Println("ServeHTTP:", err)
 		return
 	}
 
-	cl := &client{
+	cl := &Client{
 		socket:  socket,
 		receive: make(chan []byte, messageBufferSize),
-		room:    r,
-		name:    fmt.Sprintf("User_%d", rand.Intn(10000)),
+		room:    realRoom,
+		name:    fmt.Sprintf("User_%d", rand.Intn(100)),
 	}
 
 	realRoom.join <- cl
-
-	defer func() { r.leave <- cl }()
+	defer func() { realRoom.leave <- cl }()
 
 	go cl.write()
 	cl.read()

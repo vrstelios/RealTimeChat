@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -13,7 +13,7 @@ type Message struct {
 }
 
 // client is a single chatting user in a room
-type client struct {
+type Client struct {
 
 	//a web socket for this user
 	socket *websocket.Conn
@@ -21,12 +21,12 @@ type client struct {
 	// receive is a channel to receive massages from other clients
 	receive chan []byte
 
-	room *room
+	room *Room
 	name string
 }
 
 // send messages function
-func (c *client) read() {
+func (c *Client) read() {
 	// close the connection when we are done
 	defer c.socket.Close()
 
@@ -53,7 +53,7 @@ func (c *client) read() {
 }
 
 // used to received messages
-func (c *client) write() {
+func (c *Client) write() {
 	defer c.socket.Close()
 
 	for msg := range c.receive {
