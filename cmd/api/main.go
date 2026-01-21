@@ -38,18 +38,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Chat gpt
-	/*client := openai.NewClient(option.WithAPIKey("API_KEY"))
-
-	resp, err := client.Responses.New(context.TODO(), openai.ResponseNewParams{
-		Model: "gpt-5.2",
-		Input: responses.ResponseNewParamsInputUnion{OfString: openai.String("Say this is a test")},
-	})
-	if err != nil {
-		panic(err.Error())
-	}
-
-	fmt.Println(resp.OutputText())*/
+	// call AI Gemini
+	server.Init()
 
 	// make every randomly generated number unique
 	rand.Seed(time.Now().UnixNano())

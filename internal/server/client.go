@@ -1,9 +1,13 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
+	"google.golang.org/genai"
+	"log"
+	"strings"
 )
 
 type Message struct {
@@ -25,6 +29,8 @@ type Client struct {
 	name string
 }
 
+var geminiClient *genai.Client
+
 // send messages function
 func (c *Client) read() {
 	// close the connection when we are done
@@ -37,6 +43,7 @@ func (c *Client) read() {
 			return
 		}
 
+		// added answer for individual
 		outgoing := Message{
 			Name:    c.name,
 			Message: string(msg),
@@ -49,6 +56,25 @@ func (c *Client) read() {
 		}
 
 		c.room.forward <- jsonMsg
+
+		// added answer for AI agent
+		answer, err := callGemini(strings.TrimPrefix(string(msg), "/ai "))
+		if err != nil {
+			answer = "AI error"
+		}
+
+		outgoing2 := Message{
+			Name:    "Gemini",
+			Message: answer,
+		}
+
+		jsonMsg2, err := json.Marshal(outgoing2)
+		if err != nil {
+			fmt.Println("Encoding failed", err)
+			continue
+		}
+
+		c.room.forward <- jsonMsg2
 	}
 }
 
@@ -62,4 +88,31 @@ func (c *Client) write() {
 			return
 		}
 	}
+}
+
+// answer from Gemini api
+func callGemini(msg string) (string, error) {
+	ctx := context.Background()
+
+	// The client gets the API key from the environment variable `GEMINI_API_KEY`.
+	result, err := geminiClient.Models.GenerateContent(
+		ctx,
+		"gemini-3-flash-preview",
+		genai.Text(msg),
+		nil,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	return result.Text(), nil
+}
+
+func Init() {
+	ctx := context.Background()
+	c, err := genai.NewClient(ctx, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	geminiClient = c
 }
