@@ -57,6 +57,12 @@ func main() {
 			return
 		}
 
+		userName := r.URL.Query().Get("name")
+		if len(userName) == 0 {
+			http.Error(w, "User name required!", http.StatusBadRequest)
+			return
+		}
+
 		realRoom := server.GetRoom(roomName)
 		realRoom.ServeHTTP(w, r)
 	})

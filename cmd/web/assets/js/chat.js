@@ -1,12 +1,16 @@
 const params = new URLSearchParams(window.location.search);
 const room = params.get("room");
+const username = params.get("username");
+const useAI = params.get("useAI") === "true";
 
-if (!room) {
-  alert("No room specified. Redirecting to homepage...");
+if (!room || !username) {
+  alert("Room or username missing. Redirecting to homepage...");
   window.location.href = "/";
 }
 
-const socket = new WebSocket(`ws://${location.host}/room?room=${room}`);
+const socket = new WebSocket(
+  `ws://${location.host}/room?room=${encodeURIComponent(room)}&name=${encodeURIComponent(username)}&useAI=${useAI}`
+);
 
 socket.onmessage = (event) => {
   try {

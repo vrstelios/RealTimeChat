@@ -25,8 +25,9 @@ type Client struct {
 	// receive is a channel to receive massages from other clients
 	receive chan []byte
 
-	room *Room
-	name string
+	room  *Room
+	name  string
+	useAI string
 }
 
 var geminiClient *genai.Client
@@ -58,23 +59,25 @@ func (c *Client) read() {
 		c.room.forward <- jsonMsg
 
 		// added answer for AI agent
-		answer, err := callGemini(strings.TrimPrefix(string(msg), "/ai "))
-		if err != nil {
-			answer = "AI error"
-		}
+		if c.useAI == "true" {
+			answer, err := callGemini(strings.TrimPrefix(string(msg), "/ai "))
+			if err != nil {
+				answer = "AI error"
+			}
 
-		outgoing2 := Message{
-			Name:    "Gemini",
-			Message: answer,
-		}
+			outgoing2 := Message{
+				Name:    "Gemini",
+				Message: answer,
+			}
 
-		jsonMsg2, err := json.Marshal(outgoing2)
-		if err != nil {
-			fmt.Println("Encoding failed", err)
-			continue
-		}
+			jsonMsg2, err := json.Marshal(outgoing2)
+			if err != nil {
+				fmt.Println("Encoding failed", err)
+				continue
+			}
 
-		c.room.forward <- jsonMsg2
+			c.room.forward <- jsonMsg2
+		}
 	}
 }
 

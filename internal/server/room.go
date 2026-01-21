@@ -1,9 +1,7 @@
 package server
 
 import (
-	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"sync"
 
@@ -89,6 +87,13 @@ func (r *Room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	username := req.URL.Query().Get("name")
+	if len(roomName) == 0 {
+		http.Error(w, "User name required", http.StatusBadRequest)
+		return
+	}
+
+	useAI := req.URL.Query().Get("useAI")
 	realRoom := GetRoom(roomName)
 
 	// Create socket
@@ -102,7 +107,8 @@ func (r *Room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		socket:  socket,
 		receive: make(chan []byte, messageBufferSize),
 		room:    realRoom,
-		name:    fmt.Sprintf("User_%d", rand.Intn(100)),
+		name:    username,
+		useAI:   useAI,
 	}
 
 	realRoom.join <- cl
