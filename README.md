@@ -51,7 +51,8 @@ git clone https://github.com/vrstelios/RealTimeChat.git
 cd RealTimeChat
 ```
 2) Environment:
-The site [gemini-api-key]([https://openweathermap.org/current](https://ai.google.dev/gemini-api/docs/api-key?utm_source=google&utm_medium=cpc&utm_campaign=Cloud-SS-DR-AIS-FY26-global-gsem-1713578&utm_content=text-ad&utm_term=KW_gemini%20api%20key&gclsrc=aw.ds&gad_source=1&gad_campaignid=23417416058&gclid=EAIaIQobChMItJLi5LuhkgMVUqf9BR2YQDzhEAAYASABEgJYQfD_BwE)) takes a correct API key.
+
+The site [Gemini](https://ai.google.dev/gemini-api/docs/api-key?utm_source=google&utm_medium=cpc&utm_campaign=Cloud-SS-DR-AIS-FY26-global-gsem-1713578&utm_content=text-ad&utm_term=KW_gemini%20api%20key&gclsrc=aw.ds&gad_source=1&gad_campaignid=23417416058&gclid=EAIaIQobChMItJLi5LuhkgMVUqf9BR2YQDzhEAAYASABEgJYQfD_BwE) takes a correct API key.
 Create a `.env` in the project root:
 ```bash
 APP_ADDR=:8080
