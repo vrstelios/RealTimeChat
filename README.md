@@ -78,3 +78,10 @@ Enter a room name and username.
 3. To enable AI responses, join the room with `useAI=true`.
 4. Send messages starting with `AI` to interact with Gemini.
 
+### Author
+[DoctorVerRossi](https://github.com/vrstelios)
+
+---
+
+If you find this project helpful, please give it a star on GitHub!
+
