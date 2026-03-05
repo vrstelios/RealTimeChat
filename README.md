@@ -6,6 +6,8 @@ A real-time web chat application. It supports multiple chat rooms, WebSocket-bas
 
 ![WebSocketDiagram.png](WebSocketDiagram.png)
 
+---
+
 ## Features
 
 ### Features
