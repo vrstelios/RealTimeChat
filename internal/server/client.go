@@ -1,6 +1,7 @@
 package server
 
 import (
+	"RealTimeChat/internal/database"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -21,7 +22,7 @@ type Message struct {
 	StreamId  string `json:"streamId,omitempty"`
 }
 
-// client is a single chatting user in a room
+// Client is a single chatting user in a room
 type Client struct {
 
 	//a web socket for this user
@@ -37,12 +38,12 @@ type Client struct {
 
 var geminiClient *genai.Client
 
-// send messages function
+// Send messages function
 func (c *Client) read() {
 	// close the connection when we are done
 	defer c.socket.Close()
 
-	// as long as there is a input, forward it
+	// as long as there is input, forward it
 	for {
 		_, msg, err := c.socket.ReadMessage()
 		if err != nil {
@@ -69,7 +70,7 @@ func (c *Client) read() {
 	}
 }
 
-// used to received messages
+// Used to received messages
 func (c *Client) write() {
 	defer c.socket.Close()
 
@@ -159,6 +160,8 @@ func (c *Client) streamGemini(prompt string) {
 	if err := c.room.rdb.Publish(redisCtx, "room:"+c.room.name, jsonBroadcast).Err(); err != nil {
 		log.Println("Redis publish error:", err)
 	}
+
+	go database.SaveMessage(c.room.name, "Gemini", fullText.String(), "model")
 }
 
 func Init() {

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"RealTimeChat/internal/database"
 	"context"
 	"encoding/json"
 	"github.com/redis/go-redis/v9"
@@ -79,7 +80,7 @@ func newRoom(name string) *Room {
 	}
 }
 
-// each room is a separate thread that should be run independently (but as long as the main server is running)
+// Each room is a separate thread that should be run independently (but as long as the main server is running)
 func (r *Room) run() {
 	for {
 		select {
@@ -132,6 +133,14 @@ func (r *Room) subscribeRedis() {
 				log.Printf("Client %s receive channel full, skipping message\n", cl.name)
 			}
 		}
+
+		var role = "user"
+		if m.Name != "Gemini" {
+			role = "model"
+		}
+
+		// Just arrived message from Redis, save it to MongoDB
+		go database.SaveMessage(r.name, m.Name, m.Message, role)
 	}
 }
 
@@ -176,6 +185,24 @@ func (r *Room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	realRoom.join <- cl
 	defer func() { realRoom.leave <- cl }()
+
+	history, err := database.GetMessages(roomName)
+	if err != nil {
+		log.Println("Failed to load history:", err)
+	} else {
+		for _, msg := range history {
+			histMsg := Message{
+				Name:    msg.Name,
+				Message: msg.Message,
+			}
+			jsonMsg, _ := json.Marshal(histMsg)
+			// Update the socket with old message before cl.write start yet
+			if err = socket.WriteMessage(websocket.TextMessage, jsonMsg); err != nil {
+				log.Println("Failed to send history message:", err)
+				break
+			}
+		}
+	}
 
 	go cl.write()
 	cl.read()

@@ -1,5 +1,7 @@
 version: "3.9"
 
+# docker compose -f docker-chat.monitoring.yml up -d
+
 services:
   redis:
     image: redis:alpine
@@ -9,5 +11,18 @@ services:
     volumes:
       - redis_data:/data
 
+  mongodb:
+    image: mongo:6
+    container_name: mongodb-chat
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongodb_data:/data/db
+
 volumes:
   redis_data:
+  mongodb_data:

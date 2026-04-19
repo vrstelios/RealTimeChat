@@ -10,6 +10,7 @@ type Config struct {
 	AppAddr      string
 	RedisAddr    string
 	GeminiAPIKey string
+	MongoURI     string
 }
 
 func Load() *Config {
@@ -27,9 +28,20 @@ func Load() *Config {
 		log.Fatal("APP_ADDR environment variable is required")
 	}
 
+	geminiAPIKey := os.Getenv("GEMINI_API_KEY")
+	if geminiAPIKey == "" {
+		log.Fatal("GEMINI_API_KEY environment variable is required")
+	}
+
+	mongoURL := os.Getenv("MONGO_URI")
+	if mongoURL == "" {
+		log.Fatal("MONGO_URI environment variable is required")
+	}
+
 	return &Config{
 		AppAddr:      appAddr,
 		RedisAddr:    redisAddr,
-		GeminiAPIKey: os.Getenv("GEMINI_API_KEY"),
+		GeminiAPIKey: geminiAPIKey,
+		MongoURI:     mongoURL,
 	}
 }

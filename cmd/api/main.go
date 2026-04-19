@@ -2,6 +2,7 @@ package main
 
 import (
 	"RealTimeChat/config"
+	"RealTimeChat/internal/database"
 	"fmt"
 	"html/template"
 	"log"
@@ -12,6 +13,8 @@ import (
 
 	"RealTimeChat/internal/server"
 )
+
+var cfg *config.Config
 
 type templateHandler struct {
 	once     sync.Once
@@ -30,13 +33,6 @@ func (t *templateHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // take answer from AI API
 func main() {
-	// Load credential from environment file
-	cfg := config.Load()
-
-	// Call AI Gemini
-	server.Init()
-	// Load Redis Address
-	server.InitRedis(cfg.RedisAddr)
 
 	// Make every randomly generated number unique
 	rand.Seed(time.Now().UnixNano())
@@ -71,4 +67,15 @@ func main() {
 	if err := http.ListenAndServe(cfg.AppAddr, nil); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func init() {
+	// Load credential from environment file
+	cfg = config.Load()
+	// Call AI Gemini
+	server.Init()
+	// Load Redis Address
+	server.InitRedis(cfg.RedisAddr)
+	// Load MongoDB Address
+	database.InitDatabase(cfg.MongoURI)
 }
