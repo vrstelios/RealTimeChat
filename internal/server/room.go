@@ -121,6 +121,11 @@ func (r *Room) subscribeRedis() {
 			continue
 		}
 
+		if m.Name != "Gemini" {
+			// Just arrived message from Redis, save it to MongoDB
+			go database.SaveMessage(r.name, m.Name, m.Message, "user")
+		}
+
 		// Broadcast the message to all clients in the room
 		for cl := range r.clients {
 			if m.Name == "Gemini" && m.Room == cl.name {
@@ -133,14 +138,6 @@ func (r *Room) subscribeRedis() {
 				log.Printf("Client %s receive channel full, skipping message\n", cl.name)
 			}
 		}
-
-		var role = "user"
-		if m.Name != "Gemini" {
-			role = "model"
-		}
-
-		// Just arrived message from Redis, save it to MongoDB
-		go database.SaveMessage(r.name, m.Name, m.Message, role)
 	}
 }
 
@@ -198,7 +195,7 @@ func (r *Room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			jsonMsg, _ := json.Marshal(histMsg)
 			// Update the socket with old message before cl.write start yet
 			if err = socket.WriteMessage(websocket.TextMessage, jsonMsg); err != nil {
-				log.Println("Failed to send history message:", err)
+				log.Println("Failed to send history:", err)
 				break
 			}
 		}

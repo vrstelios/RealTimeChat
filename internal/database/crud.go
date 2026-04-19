@@ -15,6 +15,7 @@ func SaveMessage(room, name, message, role string) error {
 	defer cancel()
 
 	msg := model.Message{
+		Id:        bson.NewObjectID(),
 		Room:      room,
 		Name:      name,
 		Message:   message,

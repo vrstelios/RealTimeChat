@@ -91,10 +91,25 @@ func (c *Client) streamGemini(prompt string) {
 
 	var fullText strings.Builder
 
+	// Take the message history from database
+	history, _ := database.GetMessages(c.room.name)
+	var allMsg []*genai.Content
+	for _, h := range history {
+		allMsg = append(allMsg, &genai.Content{
+			Role:  h.Role,
+			Parts: []*genai.Part{{Text: h.Message}},
+		})
+	}
+	// Take the new message from user
+	allMsg = append(allMsg, &genai.Content{
+		Role:  "user",
+		Parts: []*genai.Part{{Text: prompt}},
+	})
+
 	for result, err := range geminiClient.Models.GenerateContentStream(
 		ctx,
 		"gemini-3-flash-preview",
-		genai.Text(prompt),
+		allMsg,
 		nil,
 	) {
 		if err != nil {

@@ -1,12 +1,15 @@
 package model
 
-import "time"
+import (
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"time"
+)
 
 type Message struct {
-	Id        string    `json:"id"`
-	Room      string    `json:"room"`
-	Name      string    `json:"name"`
-	Message   string    `json:"message"`
-	Role      string    `json:"role"`
-	Timestamp time.Time `json:"timestamp"`
+	Id        bson.ObjectID `bson:"_id"`
+	Room      string        `bson:"room"`
+	Name      string        `bson:"name"`
+	Message   string        `bson:"message"`
+	Role      string        `bson:"role"`
+	Timestamp time.Time     `bson:"timestamp"`
 }
