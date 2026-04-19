@@ -12,33 +12,65 @@ const socket = new WebSocket(
   `ws://${location.host}/room?room=${encodeURIComponent(room)}&name=${encodeURIComponent(username)}&useAI=${useAI}`
 );
 
+// Store reference the active streaming bubbles
+const streamingBubbles = {};
+
 socket.onmessage = (event) => {
   try {
     const data = JSON.parse(event.data);
+    const messagesDiv = document.getElementById("messages");
 
-    // Create the container div
-    const msgContainer = document.createElement("div");
-    msgContainer.classList.add("message-container");
+    if (data.streamId && data.streaming !== undefined && data.streaming === true) {
 
-    // Create the username div
-    const usernameDiv = document.createElement("div");
-    usernameDiv.classList.add("username");
-    usernameDiv.textContent = data.name;
+      if (streamingBubbles[data.streamId]) {
+        // Add token
+        streamingBubbles[data.streamId].textContent += data.message;
 
-    // Create the message div
-    const messageDiv = document.createElement("div");
-    messageDiv.classList.add("message");
-    messageDiv.textContent = data.message;
+      } else {
+        const msgContainer = document.createElement("div");
+        msgContainer.classList.add("message-container");
 
-    // Append username and message in correct order
-    msgContainer.appendChild(usernameDiv);
-    msgContainer.appendChild(messageDiv);
+        const usernameDiv = document.createElement("div");
+        usernameDiv.classList.add("username");
+        usernameDiv.textContent = data.name;
 
-    // Append the whole message container to the messages div
-    document.getElementById("messages").appendChild(msgContainer);
+        const messageDiv = document.createElement("div");
+        messageDiv.classList.add("message", "streaming");
+        messageDiv.textContent = data.message;
+
+        msgContainer.appendChild(usernameDiv);
+        msgContainer.appendChild(messageDiv);
+        messagesDiv.appendChild(msgContainer);
+
+        // Store reference
+        streamingBubbles[data.streamId] = messageDiv;
+      }
+
+    }else if (data.streamId && data.streaming !== undefined && data.streaming === false) {
+      if (streamingBubbles[data.streamId]) {
+        streamingBubbles[data.streamId].textContent = data.message;
+        streamingBubbles[data.streamId].classList.remove("streaming");
+        delete streamingBubbles[data.streamId];
+      }
+
+    } else {
+      const msgContainer = document.createElement("div");
+      msgContainer.classList.add("message-container");
+
+      const usernameDiv = document.createElement("div");
+      usernameDiv.classList.add("username");
+      usernameDiv.textContent = data.name;
+
+      const messageDiv = document.createElement("div");
+      messageDiv.classList.add("message");
+      messageDiv.textContent = data.message;
+
+      msgContainer.appendChild(usernameDiv);
+      msgContainer.appendChild(messageDiv);
+      messagesDiv.appendChild(msgContainer);
+    }
 
     // Auto-scroll
-    const messagesDiv = document.getElementById("messages");
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
   } catch (err) {

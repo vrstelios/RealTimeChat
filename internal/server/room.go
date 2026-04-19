@@ -1,6 +1,9 @@
 package server
 
 import (
+	"context"
+	"encoding/json"
+	"github.com/redis/go-redis/v9"
 	"log"
 	"net/http"
 	"sync"
@@ -9,7 +12,7 @@ import (
 )
 
 type Room struct {
-
+	name string
 	// hold all current clients in the room
 	clients map[*Client]bool
 
@@ -21,10 +24,27 @@ type Room struct {
 
 	// forward is a channel that holds incoming messages that should be forwarded to  other clients
 	forward chan []byte
+
+	rdb *redis.Client
 }
 
-var rooms = make(map[string]*Room)
-var mu sync.Mutex
+var (
+	rooms = make(map[string]*Room)
+	mu    sync.Mutex
+	rdb   *redis.Client
+)
+
+func InitRedis(addr string) {
+	rdb = redis.NewClient(&redis.Options{
+		Addr: addr,
+	})
+
+	ctx := context.Background()
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Fatal("Redis connection failed:", err)
+	}
+	log.Println("Redis connected:", addr)
+}
 
 func GetRoom(name string) *Room {
 
@@ -36,19 +56,26 @@ func GetRoom(name string) *Room {
 		return r
 	}
 	// if not
-	r := newRoom()
+	r := newRoom(name)
 	rooms[name] = r
 
+	// Save room in Redis
+	ctx := context.Background()
+	rdb.HSet(ctx, "rooms", name, "active")
+
 	go r.run()
+	go r.subscribeRedis()
 	return r
 }
 
-func newRoom() *Room {
+func newRoom(name string) *Room {
 	return &Room{
+		name:    name,
 		forward: make(chan []byte),
 		join:    make(chan *Client),
 		leave:   make(chan *Client),
 		clients: make(map[*Client]bool),
+		rdb:     rdb,
 	}
 }
 
@@ -59,14 +86,50 @@ func (r *Room) run() {
 		// adding a user to a channel
 		case cl := <-r.join:
 			r.clients[cl] = true
+			// Save username from Redis
+			ctx := context.Background()
+			r.rdb.HSet(ctx, "room:"+r.name+":users", cl.name, "online")
 		// removing a user from a channel
 		case cl := <-r.leave:
 			delete(r.clients, cl)
 			close(cl.receive)
+			// Remove username from Redis
+			ctx := context.Background()
+			r.rdb.HDel(ctx, "room:"+r.name+":users", cl.name)
 		// send a message to all clients in the room
 		case msg := <-r.forward:
-			for cl := range r.clients {
-				cl.receive <- msg
+			ctx := context.Background()
+			if err := r.rdb.Publish(ctx, "room:"+r.name, msg).Err(); err != nil {
+				log.Println("Redis publish error:", err)
+			}
+		}
+	}
+}
+
+func (r *Room) subscribeRedis() {
+	ctx := context.Background()
+	sub := r.rdb.Subscribe(ctx, "room:"+r.name)
+	defer sub.Close()
+
+	ch := sub.Channel()
+	for msg := range ch {
+		var m Message
+		// If Gemini broadcast send in all, however send missing message to all clients in the room
+		if err := json.Unmarshal([]byte(msg.Payload), &m); err != nil {
+			log.Println("Failed to unmarshal message:", err)
+			continue
+		}
+
+		// Broadcast the message to all clients in the room
+		for cl := range r.clients {
+			if m.Name == "Gemini" && m.Room == cl.name {
+				continue
+			}
+			select {
+			case cl.receive <- []byte(msg.Payload):
+			default:
+				// If the client's receive channel is full, skip sending the message
+				log.Printf("Client %s receive channel full, skipping message\n", cl.name)
 			}
 		}
 	}
@@ -78,7 +141,7 @@ const (
 	messageBufferSize = 256
 )
 
-var upGrader = &websocket.Upgrader{ReadBufferSize: socketBufferSize, WriteBufferSize: messageBufferSize}
+var upGrader = &websocket.Upgrader{ReadBufferSize: socketBufferSize, WriteBufferSize: messageBufferSize, CheckOrigin: func(r *http.Request) bool { return true }}
 
 func (r *Room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	roomName := req.URL.Query().Get("room")
@@ -93,7 +156,7 @@ func (r *Room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	useAI := req.URL.Query().Get("useAI")
+	useAI := req.URL.Query().Get("useAI") == "true"
 	realRoom := GetRoom(roomName)
 
 	// Create socket

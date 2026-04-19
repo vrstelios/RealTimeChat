@@ -1,14 +1,12 @@
 package main
 
 import (
-	"flag"
+	"RealTimeChat/config"
 	"fmt"
-	"github.com/joho/godotenv"
 	"html/template"
 	"log"
 	"math/rand"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -33,19 +31,15 @@ func (t *templateHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // take answer from AI API
 func main() {
 	// Load credential from environment file
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
+	cfg := config.Load()
 
-	// call AI Gemini
+	// Call AI Gemini
 	server.Init()
+	// Load Redis Address
+	server.InitRedis(cfg.RedisAddr)
 
-	// make every randomly generated number unique
+	// Make every randomly generated number unique
 	rand.Seed(time.Now().UnixNano())
-	addrFromEnv := os.Getenv("APP_ADDR")
-	var addr = flag.String("addr", addrFromEnv, "Addr of the app")
-	flag.Parse()
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("cmd/web/assets"))))
 	http.Handle("/", &templateHandler{filename: "cmd/web/index.html"})
@@ -73,8 +67,8 @@ func main() {
 	\ \ \__ \  \ \ \/\ \   -  \ \  __ \  \ \  _-/ \ \ \
 	 \ \_____\  \ \_____\  -   \ \_\ \_\  \ \_\    \ \_\
 	  \/_____/   \/_____/       \/_/\/_/   \/_/     \/_/ 
-	   Starting web server on:`, *addr)
-	if err := http.ListenAndServe(*addr, nil); err != nil {
+	   Starting web server on:`, cfg.AppAddr)
+	if err := http.ListenAndServe(cfg.AppAddr, nil); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -8,12 +8,17 @@ import (
 	"google.golang.org/genai"
 	"log"
 	"strings"
+	"time"
 )
 
 type Message struct {
 	Name    string `json:"name"`
 	Message string `json:"message"`
 	Room    string `json:"room,omitempty"`
+
+	// New field for AI usage
+	Streaming *bool  `json:"streaming,omitempty"`
+	StreamId  string `json:"streamId,omitempty"`
 }
 
 // client is a single chatting user in a room
@@ -27,7 +32,7 @@ type Client struct {
 
 	room  *Room
 	name  string
-	useAI string
+	useAI bool
 }
 
 var geminiClient *genai.Client
@@ -55,28 +60,11 @@ func (c *Client) read() {
 			fmt.Println("Encoding failed", err)
 			continue
 		}
-
 		c.room.forward <- jsonMsg
 
 		// added answer for AI agent
-		if c.useAI == "true" {
-			answer, err := callGemini(strings.TrimPrefix(string(msg), "/ai "))
-			if err != nil {
-				answer = "AI error"
-			}
-
-			outgoing2 := Message{
-				Name:    "Gemini",
-				Message: answer,
-			}
-
-			jsonMsg2, err := json.Marshal(outgoing2)
-			if err != nil {
-				fmt.Println("Encoding failed", err)
-				continue
-			}
-
-			c.room.forward <- jsonMsg2
+		if c.useAI {
+			go c.streamGemini(strings.TrimPrefix(string(msg), "/ai "))
 		}
 	}
 }
@@ -93,22 +81,84 @@ func (c *Client) write() {
 	}
 }
 
-// answer from Gemini api
-func callGemini(msg string) (string, error) {
-	ctx := context.Background()
+func boolPtr(b bool) *bool { return &b }
 
-	// The client gets the API key from the environment variable `GEMINI_API_KEY`.
-	result, err := geminiClient.Models.GenerateContent(
+// Answer from Gemini api
+func (c *Client) streamGemini(prompt string) {
+	ctx := context.Background()
+	streamId := fmt.Sprintf("gemini-%d", time.Now().UnixNano())
+
+	var fullText strings.Builder
+
+	for result, err := range geminiClient.Models.GenerateContentStream(
 		ctx,
 		"gemini-3-flash-preview",
-		genai.Text(msg),
+		genai.Text(prompt),
 		nil,
-	)
-	if err != nil {
-		return "", err
+	) {
+		if err != nil {
+			if strings.Contains(err.Error(), "429") {
+				errMsg := Message{
+					Name:    "Gemini",
+					Message: "Rate limit.",
+				}
+				jsonErr, _ := json.Marshal(errMsg)
+				c.receive <- jsonErr
+			}
+			log.Println("Stream error:", err)
+			break
+		}
+
+		// Take the text from first candidate
+		token := result.Candidates[0].Content.Parts[0].Text
+		if token == "" {
+			continue
+		}
+
+		fullText.WriteString(token)
+
+		// Send any token
+		streamMsg := Message{
+			Name:      "Gemini",
+			Message:   token,
+			Streaming: boolPtr(true),
+			StreamId:  streamId,
+		}
+
+		jsonMsg, _ := json.Marshal(streamMsg)
+		select {
+		case c.receive <- jsonMsg:
+		default:
+			log.Println("Client buffer full:", c.name)
+		}
 	}
 
-	return result.Text(), nil
+	// Done signal the client from asks
+	doneMsg := Message{
+		Name:      "Gemini",
+		Message:   fullText.String(),
+		Streaming: boolPtr(false),
+		StreamId:  streamId,
+	}
+	jsonDone, _ := json.Marshal(doneMsg)
+	select {
+	case c.receive <- jsonDone:
+	default:
+		log.Println("Client buffer full on done:", c.name)
+	}
+
+	// Publish Redis the last message for all user in room
+	// Without streamId in order to appear as normal message in the chat
+	broadcastMsg := Message{
+		Name:    "Gemini",
+		Message: fullText.String(),
+		Room:    c.name,
+	}
+	jsonBroadcast, _ := json.Marshal(broadcastMsg)
+	redisCtx := context.Background()
+	if err := c.room.rdb.Publish(redisCtx, "room:"+c.room.name, jsonBroadcast).Err(); err != nil {
+		log.Println("Redis publish error:", err)
+	}
 }
 
 func Init() {

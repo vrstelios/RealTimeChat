@@ -29,11 +29,11 @@ This project follows a clean and structured architecture for maintainability and
 │   ├── assets/        # Static files (CSS, JS)
 │   ├── index.html     # Home page
 │   └── chat.html      # Chat UI
-│
+config/
+│   └── config.go     ← διαβάζει .env, επιστρέφει Config struct  
 ├── internal/server/
 │   ├── client.go      # WebSocket client logic and  Gemini AI integration
 │   └── room.go        # Chat room management
-│
 ├── main.go            # Application entry point
 ├── go.mod
 ├── go.sum

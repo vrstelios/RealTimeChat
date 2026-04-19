@@ -130,3 +130,14 @@ header {
 .index-body button:hover {
   background-color: #1d77cc;
 }
+
+.message.streaming::after {
+  content: "▍";
+  display: inline-block;
+  animation: blink 0.7s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
