@@ -1,0 +1,66 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "This is a real-time chat service API.",
+        "title": "RealTime Chat API",
+        "contact": {
+            "name": "DoctorVeRossi",
+            "url": "https://github.com/vrstelios/RealTimeChat"
+        },
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/room": {
+            "get": {
+                "description": "Upgrades HTTP connection to WebSocket and joins a chat room",
+                "tags": [
+                    "chat"
+                ],
+                "summary": "Join a chat room via WebSocket",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room name",
+                        "name": "room",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Username",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Enable AI responses (Gemini)",
+                        "name": "useAI",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols — WebSocket connection established",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request — missing room or username",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error — WebSocket upgrade failed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,44 @@
+basePath: /
+info:
+  contact:
+    name: DoctorVeRossi
+    url: https://github.com/vrstelios/RealTimeChat
+  description: This is a real-time chat service API.
+  title: RealTime Chat API
+  version: "1.0"
+paths:
+  /room:
+    get:
+      description: Upgrades HTTP connection to WebSocket and joins a chat room
+      parameters:
+      - description: Room name
+        in: query
+        name: room
+        required: true
+        type: string
+      - description: Username
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: Enable AI responses (Gemini)
+        in: query
+        name: useAI
+        type: boolean
+      responses:
+        "101":
+          description: Switching Protocols — WebSocket connection established
+          schema:
+            type: string
+        "400":
+          description: Bad Request — missing room or username
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error — WebSocket upgrade failed
+          schema:
+            type: string
+      summary: Join a chat room via WebSocket
+      tags:
+      - chat
+swagger: "2.0"

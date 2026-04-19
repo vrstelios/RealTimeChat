@@ -2,8 +2,11 @@ package main
 
 import (
 	"RealTimeChat/config"
+	_ "RealTimeChat/docs"
+	"RealTimeChat/internal/api"
 	"RealTimeChat/internal/database"
 	"fmt"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"html/template"
 	"log"
 	"math/rand"
@@ -31,31 +34,23 @@ func (t *templateHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t.template.Execute(w, req)
 }
 
-// take answer from AI API
+// @title         RealTime Chat API
+// @version		  1.0
+// @description   This is a real-time chat service API.
+// @contact.name  DoctorVeRossi
+// @contact.url   https://github.com/vrstelios/RealTimeChat
+// @BasePath      /
 func main() {
 
 	// Make every randomly generated number unique
 	rand.Seed(time.Now().UnixNano())
 
+	http.Handle("/swagger/", httpSwagger.WrapHandler)
+
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("cmd/web/assets"))))
 	http.Handle("/", &templateHandler{filename: "cmd/web/index.html"})
 	http.Handle("/chat", &templateHandler{filename: "cmd/web/chat.html"})
-	http.HandleFunc("/room", func(w http.ResponseWriter, r *http.Request) {
-		roomName := r.URL.Query().Get("room")
-		if len(roomName) == 0 {
-			http.Error(w, "Room name required!", http.StatusBadRequest)
-			return
-		}
-
-		userName := r.URL.Query().Get("name")
-		if len(userName) == 0 {
-			http.Error(w, "User name required!", http.StatusBadRequest)
-			return
-		}
-
-		realRoom := server.GetRoom(roomName)
-		realRoom.ServeHTTP(w, r)
-	})
+	http.HandleFunc("/room", api.RoomHandler)
 
 	fmt.Println(`
 	 ______     ______         ______     ______   __
