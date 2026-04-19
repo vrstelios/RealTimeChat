@@ -1,7 +1,7 @@
 package api
 
 import (
-	"RealTimeChat/internal/server"
+	"RealTimeChat/backend/internal/server"
 	"net/http"
 )
 

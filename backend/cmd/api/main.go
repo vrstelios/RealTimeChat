@@ -1,10 +1,11 @@
 package main
 
 import (
-	"RealTimeChat/config"
-	_ "RealTimeChat/docs"
-	"RealTimeChat/internal/api"
-	"RealTimeChat/internal/database"
+	"RealTimeChat/backend/config"
+	_ "RealTimeChat/backend/docs"
+	"RealTimeChat/backend/internal/api"
+	"RealTimeChat/backend/internal/database"
+	server2 "RealTimeChat/backend/internal/server"
 	"fmt"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"html/template"
@@ -13,8 +14,6 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
-	"RealTimeChat/internal/server"
 )
 
 var cfg *config.Config
@@ -41,15 +40,15 @@ func (t *templateHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // @contact.url   https://github.com/vrstelios/RealTimeChat
 // @BasePath      /
 func main() {
-
 	// Make every randomly generated number unique
 	rand.Seed(time.Now().UnixNano())
 
 	http.Handle("/swagger/", httpSwagger.WrapHandler)
 
-	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("cmd/web/assets"))))
-	http.Handle("/", &templateHandler{filename: "cmd/web/index.html"})
-	http.Handle("/chat", &templateHandler{filename: "cmd/web/chat.html"})
+	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("frontend/web/assets"))))
+	http.Handle("/", &templateHandler{filename: "frontend/web/index.html"})
+	http.Handle("/chat", &templateHandler{filename: "frontend/web/chat.html"})
+
 	http.HandleFunc("/room", api.RoomHandler)
 
 	fmt.Println(`
@@ -68,9 +67,9 @@ func init() {
 	// Load credential from environment file
 	cfg = config.Load()
 	// Call AI Gemini
-	server.Init()
+	server2.Init()
 	// Load Redis Address
-	server.InitRedis(cfg.RedisAddr)
+	server2.InitRedis(cfg.RedisAddr)
 	// Load MongoDB Address
 	database.InitDatabase(cfg.MongoURI)
 }

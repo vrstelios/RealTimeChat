@@ -1,7 +1,7 @@
 package database
 
 import (
-	"RealTimeChat/internal/type/model"
+	"RealTimeChat/backend/internal/type/model"
 	"context"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"

@@ -1,7 +1,7 @@
 package server
 
 import (
-	"RealTimeChat/internal/database"
+	"RealTimeChat/backend/internal/database"
 	"context"
 	"encoding/json"
 	"fmt"
