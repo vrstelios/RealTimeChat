@@ -2,6 +2,8 @@ package server
 
 import (
 	"RealTimeChat/backend/internal/database"
+	"RealTimeChat/backend/internal/mcp"
+	"RealTimeChat/backend/internal/rag"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -89,58 +91,137 @@ func (c *Client) streamGemini(prompt string) {
 	ctx := context.Background()
 	streamId := fmt.Sprintf("gemini-%d", time.Now().UnixNano())
 
-	var fullText strings.Builder
+	// Load chat history from MongoDB
+	history, err := database.GetMessages(c.room.name)
+	if err != nil {
+		log.Println("Failed to load history:", err)
+	}
 
-	// Take the message history from database
-	history, _ := database.GetMessages(c.room.name)
-	var allMsg []*genai.Content
+	// Build conversation history for Gemini
+	var contents []*genai.Content
 	for _, h := range history {
-		allMsg = append(allMsg, &genai.Content{
+		contents = append(contents, &genai.Content{
 			Role:  h.Role,
 			Parts: []*genai.Part{{Text: h.Message}},
 		})
 	}
-	// Take the new message from user
-	allMsg = append(allMsg, &genai.Content{
+
+	// Add new user message
+	contents = append(contents, &genai.Content{
 		Role:  "user",
 		Parts: []*genai.Part{{Text: prompt}},
 	})
 
-	for result, err := range geminiClient.Models.GenerateContentStream(
-		ctx,
-		"gemini-3-flash-preview",
-		allMsg,
-		nil,
-	) {
+	config := &genai.GenerateContentConfig{
+		Tools: []*genai.Tool{
+			mcp.SearchWebTool,
+			mcp.SearchDocumentsTool,
+		},
+	}
+
+	var fullText strings.Builder
+
+	// Tool calling loop
+	for {
+		resp, err := geminiClient.Models.GenerateContent(
+			ctx,
+			"gemini-3-flash-preview",
+			contents,
+			config,
+		)
 		if err != nil {
-			if strings.Contains(err.Error(), "429") {
-				errMsg := Message{
-					Name:    "Gemini",
-					Message: "Rate limit.",
-				}
-				jsonErr, _ := json.Marshal(errMsg)
-				c.receive <- jsonErr
-			}
-			log.Println("Stream error:", err)
+			log.Println("Gemini error:", err)
 			break
 		}
 
-		// Take the text from first candidate
-		token := result.Candidates[0].Content.Parts[0].Text
-		if token == "" {
-			continue
+		if len(resp.Candidates) == 0 {
+			break
 		}
 
-		fullText.WriteString(token)
+		candidate := resp.Candidates[0]
 
-		// Send any token
+		hasFunctionCall := false
+		for _, part := range candidate.Content.Parts {
+			if part.FunctionCall == nil {
+				continue
+			}
+
+			hasFunctionCall = true
+			toolName := part.FunctionCall.Name
+			args := part.FunctionCall.Args
+			log.Printf("Gemini calls tool: %s with args: %v\n", toolName, args)
+
+			var toolResult string
+			switch toolName {
+			case "search_web":
+				query, _ := args["query"].(string)
+				toolResult, err = mcp.SearchWeb(query)
+				if err != nil {
+					toolResult = "Web search failed: " + err.Error()
+				}
+				log.Println("Web search result:", toolResult)
+
+			case "search_documents":
+				query, _ := args["query"].(string)
+
+				queryEmbedding, err := rag.EmbedQuery(ctx, geminiClient, query)
+				if err != nil {
+					toolResult = "Document search failed: " + err.Error()
+					break
+				}
+
+				chunks, err := rag.SearchChunks(ctx, queryEmbedding, c.room.name, 5)
+				if err != nil {
+					toolResult = "Document search failed: " + err.Error()
+					break
+				}
+
+				if len(chunks) == 0 {
+					toolResult = "No relevant documents found for this room."
+				} else {
+					toolResult = "Document context:\n\n" + strings.Join(chunks, "\n\n---\n\n")
+				}
+				log.Println("Document search found", len(chunks), "chunks")
+			}
+
+			contents = append(contents, candidate.Content)
+			contents = append(contents, &genai.Content{
+				Role: "user",
+				Parts: []*genai.Part{
+					{
+						FunctionResponse: &genai.FunctionResponse{
+							Name:     toolName,
+							Response: map[string]any{"result": toolResult},
+						},
+					},
+				},
+			})
+		}
+
+		if !hasFunctionCall {
+			for _, part := range candidate.Content.Parts {
+				if part.Text != "" {
+					fullText.WriteString(part.Text)
+				}
+			}
+			break
+		}
+	}
+
+	// Word by word streaming
+	finalText := fullText.String()
+	words := strings.Fields(finalText)
+	for i, word := range words {
+		token := word
+		if i < len(words)-1 {
+			token += " "
+		}
 		streamMsg := Message{
 			Name:      "Gemini",
 			Message:   token,
 			Streaming: boolPtr(true),
 			StreamId:  streamId,
 		}
-
 		jsonMsg, _ := json.Marshal(streamMsg)
 		select {
 		case c.receive <- jsonMsg:
@@ -149,10 +230,10 @@ func (c *Client) streamGemini(prompt string) {
 		}
 	}
 
-	// Done signal the client from asks
+	// Done signal
 	doneMsg := Message{
 		Name:      "Gemini",
-		Message:   fullText.String(),
+		Message:   finalText,
 		Streaming: boolPtr(false),
 		StreamId:  streamId,
 	}
@@ -163,20 +244,27 @@ func (c *Client) streamGemini(prompt string) {
 		log.Println("Client buffer full on done:", c.name)
 	}
 
-	// Publish Redis the last message for all user in room
-	// Without streamId in order to appear as normal message in the chat
+	// Save to MongoDB
+	go database.SaveMessage(c.room.name, c.name, prompt, "user")
+	go database.SaveMessage(c.room.name, "Gemini", finalText, "model")
+
+	// Broadcast to others via Redis
 	broadcastMsg := Message{
 		Name:    "Gemini",
-		Message: fullText.String(),
+		Message: finalText,
 		Room:    c.name,
 	}
 	jsonBroadcast, _ := json.Marshal(broadcastMsg)
-	redisCtx := context.Background()
-	if err := c.room.rdb.Publish(redisCtx, "room:"+c.room.name, jsonBroadcast).Err(); err != nil {
+	if err := c.room.rdb.Publish(ctx, "room:"+c.room.name, jsonBroadcast).Err(); err != nil {
 		log.Println("Redis publish error:", err)
 	}
+}
 
-	go database.SaveMessage(c.room.name, "Gemini", fullText.String(), "model")
+func GetGeminiClient() *genai.Client {
+	if geminiClient == nil {
+		log.Fatal("Gemini client not initialized")
+	}
+	return geminiClient
 }
 
 func Init() {

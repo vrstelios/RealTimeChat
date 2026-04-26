@@ -1,6 +1,6 @@
 version: "3.9"
 
-# docker compose -f docker-chat.monitoring.yml up -d
+# Run: docker compose -f docker-chat.monitoring.yml up -d
 
 services:
   redis:
@@ -23,6 +23,16 @@ services:
     volumes:
       - mongodb_data:/data/db
 
+  qdrant:
+    image: qdrant/qdrant
+    container_name: qdrant-chat
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
 volumes:
   redis_data:
   mongodb_data:
+  qdrant_data:

@@ -144,7 +144,7 @@ func (r *Room) subscribeRedis() {
 // upgrade a basic http connection to a websocket
 const (
 	socketBufferSize  = 1024
-	messageBufferSize = 256
+	messageBufferSize = 512
 )
 
 var upGrader = &websocket.Upgrader{ReadBufferSize: socketBufferSize, WriteBufferSize: messageBufferSize, CheckOrigin: func(r *http.Request) bool { return true }}
