@@ -93,3 +93,48 @@ document.getElementById("msg").addEventListener("keyup", function (event) {
     sendMessage();
   }
 });
+
+const fileInput = document.getElementById('fileInput');
+const uploadBtn = document.getElementById('uploadBtn');
+
+fileInput.addEventListener('change', async function() {
+    if (this.files.length === 0) return;
+
+    const file = this.files[0];
+
+    // Check if is PDF
+    if (file.type !== "application/pdf") {
+        alert("Please select only PDF.");
+        this.value = '';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const originalBtnText = uploadBtn.innerHTML;
+    uploadBtn.innerHTML = "⏳";
+    uploadBtn.disabled = true;
+
+    try {
+        const response = await fetch(`/api/documents/upload?room=${encodeURIComponent(room)}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            console.log("Success:", result);
+        } else {
+            console.error("Server Error:", result);
+        }
+
+    } catch (error) {
+        console.error("Network Error:", error);
+    } finally {
+        uploadBtn.innerHTML = originalBtnText;
+        uploadBtn.disabled = false;
+        fileInput.value = '';
+    }
+});

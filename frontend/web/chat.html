@@ -10,6 +10,9 @@
   <div id="messages"></div>
 
   <div class="chat-input">
+    <input type="file" id="fileInput" style="display: none;" />
+    <button id="uploadBtn" onclick="document.getElementById('fileInput').click();">📎</button>
+
     <input id="msg" type="text" placeholder="Type a message..." />
     <button id="sendBtn">Send</button>
   </div>
