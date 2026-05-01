@@ -2,6 +2,7 @@ package server
 
 import (
 	"RealTimeChat/backend/internal/database"
+	"RealTimeChat/backend/internal/metrics"
 	"context"
 	"encoding/json"
 	"github.com/redis/go-redis/v9"
@@ -87,6 +88,8 @@ func (r *Room) run() {
 		// adding a user to a channel
 		case cl := <-r.join:
 			r.clients[cl] = true
+			metrics.ActiveConnections.Inc()
+			metrics.ActiveRooms.Set(float64(len(rooms)))
 			// Save username from Redis
 			ctx := context.Background()
 			r.rdb.HSet(ctx, "room:"+r.name+":users", cl.name, "online")
@@ -94,6 +97,8 @@ func (r *Room) run() {
 		case cl := <-r.leave:
 			delete(r.clients, cl)
 			close(cl.receive)
+			metrics.ActiveConnections.Dec()
+			metrics.ActiveRooms.Set(float64(len(rooms)))
 			// Remove username from Redis
 			ctx := context.Background()
 			r.rdb.HDel(ctx, "room:"+r.name+":users", cl.name)
@@ -124,6 +129,7 @@ func (r *Room) subscribeRedis() {
 		if m.Name != "Gemini" {
 			// Just arrived message from Redis, save it to MongoDB
 			go database.SaveMessage(r.name, m.Name, m.Message, "user")
+			metrics.MessagesTotal.WithLabelValues(r.name, "user").Inc()
 		}
 
 		// Broadcast the message to all clients in the room

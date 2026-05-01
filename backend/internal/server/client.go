@@ -3,6 +3,7 @@ package server
 import (
 	"RealTimeChat/backend/internal/database"
 	"RealTimeChat/backend/internal/mcp"
+	"RealTimeChat/backend/internal/metrics"
 	"RealTimeChat/backend/internal/rag"
 	"context"
 	"encoding/json"
@@ -89,6 +90,7 @@ func boolPtr(b bool) *bool { return &b }
 // Answer from Gemini api
 func (c *Client) streamGemini(prompt string) {
 	ctx := context.Background()
+	start := time.Now()
 	streamId := fmt.Sprintf("gemini-%d", time.Now().UnixNano())
 
 	// Load chat history from MongoDB
@@ -208,6 +210,8 @@ func (c *Client) streamGemini(prompt string) {
 		}
 	}
 
+	metrics.GeminiLatency.Observe(time.Since(start).Seconds())
+
 	// Word by word streaming
 	finalText := fullText.String()
 	words := strings.Fields(finalText)
@@ -228,6 +232,13 @@ func (c *Client) streamGemini(prompt string) {
 		default:
 			log.Println("Client buffer full:", c.name)
 		}
+	}
+
+	if finalText != "" {
+		metrics.AIRequestsTotal.WithLabelValues("success").Inc()
+		metrics.MessagesTotal.WithLabelValues(c.room.name, "gemini").Inc()
+	} else {
+		metrics.AIRequestsTotal.WithLabelValues("error").Inc()
 	}
 
 	// Done signal
@@ -256,6 +267,7 @@ func (c *Client) streamGemini(prompt string) {
 	}
 	jsonBroadcast, _ := json.Marshal(broadcastMsg)
 	if err := c.room.rdb.Publish(ctx, "room:"+c.room.name, jsonBroadcast).Err(); err != nil {
+		metrics.RedisPublishErrors.Inc()
 		log.Println("Redis publish error:", err)
 	}
 }

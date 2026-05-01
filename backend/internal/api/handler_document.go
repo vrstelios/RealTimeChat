@@ -2,6 +2,7 @@ package api
 
 import (
 	"RealTimeChat/backend/internal/database"
+	"RealTimeChat/backend/internal/metrics"
 	"RealTimeChat/backend/internal/rag"
 	"RealTimeChat/backend/internal/type/model"
 	"encoding/json"
@@ -126,6 +127,8 @@ func (h *DocumentHandler) UploadDocument(w http.ResponseWriter, r *http.Request)
 			LastUpdated: time.Now(),
 		},
 	}
+
+	metrics.DocumentsUploaded.WithLabelValues(room).Inc()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

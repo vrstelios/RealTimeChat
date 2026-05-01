@@ -6,9 +6,11 @@ import (
 	"RealTimeChat/backend/internal/api"
 	"RealTimeChat/backend/internal/database"
 	"RealTimeChat/backend/internal/mcp"
+	"RealTimeChat/backend/internal/metrics"
 	"RealTimeChat/backend/internal/rag"
 	server "RealTimeChat/backend/internal/server"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"html/template"
 	"log"
@@ -54,8 +56,9 @@ func main() {
 
 	// Routes Backend
 	http.HandleFunc("/room", api.RoomHandler)
-	http.HandleFunc("/api/documents/upload", docHandler.UploadDocument)
 	http.HandleFunc("/api/documents/", docHandler.ListDocuments)
+	http.HandleFunc("/api/documents/upload", docHandler.UploadDocument)
+	http.Handle("/metrics", promhttp.Handler())
 
 	// Starting web server!
 	fmt.Println(`
@@ -82,11 +85,11 @@ func init() {
 	if err := rag.InitQdrant(cfg.QdrantHost, cfg.QdrantPort); err != nil {
 		log.Fatal("Qdrant init failed:", err)
 	}
-	// Test Google search
-	result, err := mcp.SearchWeb("golang websockets")
+	// Check Google search
+	_, err := mcp.SearchWeb("golang websockets")
 	if err != nil {
 		log.Println("Search error:", err)
-	} else {
-		log.Println("Search result:", result)
 	}
+	// load metrics
+	metrics.Init()
 }
