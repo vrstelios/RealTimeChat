@@ -12,3 +12,8 @@ type Document struct {
 	ChuckCount  int           `bson:"chuckCount"`
 	LastUpdated time.Time     `json:"LastUpdated" bson:"lastUpdated"`
 }
+
+type DocumentResponse struct {
+	Message string   `json:"message"`
+	Data    Document `json:"data"`
+}

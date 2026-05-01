@@ -11,6 +11,113 @@
     },
     "basePath": "/",
     "paths": {
+        "/api/documents/": {
+            "get": {
+                "description": "Retrieves all uploaded documents for a specific room",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "documents"
+                ],
+                "summary": "List documents by room",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room name",
+                        "name": "room",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Document"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "405": {
+                        "description": "Method Not Allowed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/documents/upload": {
+            "post": {
+                "description": "Uploads a PDF file, processes it into chunks, generates embeddings and stores them per room",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "documents"
+                ],
+                "summary": "Upload a PDF document",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room name",
+                        "name": "room",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "PDF file to upload",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.DocumentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "405": {
+                        "description": "Method Not Allowed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/room": {
             "get": {
                 "description": "Upgrades HTTP connection to WebSocket and joins a chat room",
@@ -42,23 +149,56 @@
                 ],
                 "responses": {
                     "101": {
-                        "description": "Switching Protocols — WebSocket connection established",
+                        "description": "Switching Protocols",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "400": {
-                        "description": "Bad Request — missing room or username",
+                        "description": "Bad Request",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error — WebSocket upgrade failed",
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "string"
                         }
                     }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "model.Document": {
+            "type": "object",
+            "properties": {
+                "LastUpdated": {
+                    "type": "string"
+                },
+                "chuckCount": {
+                    "type": "integer"
+                },
+                "file": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "room": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.DocumentResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/model.Document"
+                },
+                "message": {
+                    "type": "string"
                 }
             }
         }

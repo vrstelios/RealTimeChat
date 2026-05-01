@@ -24,6 +24,18 @@ func NewDocumentHandler(client *genai.Client) *DocumentHandler {
 	return &DocumentHandler{geminiClient: client}
 }
 
+// @Summary Upload a PDF document
+// @Description Uploads a PDF file, processes it into chunks, generates embeddings and stores them per room
+// @Tags documents
+// @Accept multipart/form-data
+// @Produce json
+// @Param room query string true "Room name"
+// @Param file formData file true "PDF file to upload"
+// @Success 200 {object} model.DocumentResponse
+// @Failure 400 {string} string
+// @Failure 405 {string} string
+// @Failure 500 {string} string
+// @Router /api/documents/upload [post]
 func (h *DocumentHandler) UploadDocument(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	if r.Method != http.MethodPost {
@@ -114,10 +126,7 @@ func (h *DocumentHandler) UploadDocument(w http.ResponseWriter, r *http.Request)
 		log.Printf("mongo error: %v", err)
 	}
 
-	resp := struct {
-		Message string `json:"message"`
-		Data    any    `json:"data"`
-	}{
+	resp := model.DocumentResponse{
 		Message: "document uploaded successfully",
 		Data: model.Document{
 			Id:          bson.NewObjectID(),
@@ -138,6 +147,16 @@ func (h *DocumentHandler) UploadDocument(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// @Summary List documents by room
+// @Description Retrieves all uploaded documents for a specific room
+// @Tags documents
+// @Produce json
+// @Param room query string true "Room name"
+// @Success 200 {array} model.Document
+// @Failure 400 {string} string
+// @Failure 405 {string} string
+// @Failure 500 {string} string
+// @Router /api/documents/ [get]
 func (h *DocumentHandler) ListDocuments(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

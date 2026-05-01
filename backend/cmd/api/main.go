@@ -42,7 +42,7 @@ func (t *templateHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // @description   This is a real-time chat service API.
 // @contact.name  DoctorVeRossi
 // @contact.url   https://github.com/vrstelios/RealTimeChat
-// @BasePath      /api
+// @BasePath      /
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	docHandler := api.NewDocumentHandler(server.GetGeminiClient())

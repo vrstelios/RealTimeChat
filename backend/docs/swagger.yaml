@@ -1,4 +1,25 @@
 basePath: /
+definitions:
+  model.Document:
+    properties:
+      LastUpdated:
+        type: string
+      chuckCount:
+        type: integer
+      file:
+        type: string
+      id:
+        type: string
+      room:
+        type: string
+    type: object
+  model.DocumentResponse:
+    properties:
+      data:
+        $ref: '#/definitions/model.Document'
+      message:
+        type: string
+    type: object
 info:
   contact:
     name: DoctorVeRossi
@@ -7,6 +28,78 @@ info:
   title: RealTime Chat API
   version: "1.0"
 paths:
+  /api/documents/:
+    get:
+      description: Retrieves all uploaded documents for a specific room
+      parameters:
+      - description: Room name
+        in: query
+        name: room
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Document'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "405":
+          description: Method Not Allowed
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: List documents by room
+      tags:
+      - documents
+  /api/documents/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Uploads a PDF file, processes it into chunks, generates embeddings
+        and stores them per room
+      parameters:
+      - description: Room name
+        in: query
+        name: room
+        required: true
+        type: string
+      - description: PDF file to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.DocumentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "405":
+          description: Method Not Allowed
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Upload a PDF document
+      tags:
+      - documents
   /room:
     get:
       description: Upgrades HTTP connection to WebSocket and joins a chat room
@@ -27,15 +120,15 @@ paths:
         type: boolean
       responses:
         "101":
-          description: Switching Protocols — WebSocket connection established
+          description: Switching Protocols
           schema:
             type: string
         "400":
-          description: Bad Request — missing room or username
+          description: Bad Request
           schema:
             type: string
         "500":
-          description: Internal Server Error — WebSocket upgrade failed
+          description: Internal Server Error
           schema:
             type: string
       summary: Join a chat room via WebSocket
