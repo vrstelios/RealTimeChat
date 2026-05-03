@@ -57,6 +57,19 @@ services:
     depends_on:
       - prometheus
 
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger-chat
+    ports:
+      - "16686:16686"
+      - "4318:4318"   # OTLP HTTP
+      - "4317:4317"   # OTLP gRPC
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      # Πρόσθεσε αυτές τις δύο γραμμές:
+      - COLLECTOR_OTLP_HTTP_HOST_PORT=:4318
+      - COLLECTOR_OTLP_GRPC_HOST_PORT=:4317
+
 volumes:
   redis_data:
   mongodb_data:

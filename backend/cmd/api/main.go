@@ -9,6 +9,8 @@ import (
 	"RealTimeChat/backend/internal/metrics"
 	"RealTimeChat/backend/internal/rag"
 	server "RealTimeChat/backend/internal/server"
+	"RealTimeChat/backend/internal/tracing"
+	"context"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -48,6 +50,10 @@ func main() {
 	docHandler := api.NewDocumentHandler(server.GetGeminiClient())
 	// Swagger documentation http://localhost:8080/swagger/index.html
 	http.Handle("/swagger/", httpSwagger.WrapHandler)
+
+	// Initialization Tracing
+	shutdown := tracing.InitTracing("realtimechat", cfg.JaegerEndpoint)
+	defer shutdown(context.Background())
 
 	// Design Frontend
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("frontend/web/assets"))))

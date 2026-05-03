@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"log"
 	"net/http"
 	"sync"
@@ -156,17 +158,16 @@ const (
 var upGrader = &websocket.Upgrader{ReadBufferSize: socketBufferSize, WriteBufferSize: messageBufferSize, CheckOrigin: func(r *http.Request) bool { return true }}
 
 func (r *Room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	roomName := req.URL.Query().Get("room")
-	if len(roomName) == 0 {
-		http.Error(w, "Room name required", http.StatusBadRequest)
-		return
-	}
+	tracer := otel.Tracer("room")
+	_, span := tracer.Start(req.Context(), "websocket_connect")
+	defer span.End()
 
+	roomName := req.URL.Query().Get("room")
 	username := req.URL.Query().Get("name")
-	if len(roomName) == 0 {
-		http.Error(w, "User name required", http.StatusBadRequest)
-		return
-	}
+	span.SetAttributes(
+		attribute.String("room", roomName),
+		attribute.String("user", username),
+	)
 
 	useAI := req.URL.Query().Get("useAI") == "true"
 	realRoom := GetRoom(roomName)

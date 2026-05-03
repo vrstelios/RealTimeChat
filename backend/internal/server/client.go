@@ -9,6 +9,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"google.golang.org/genai"
 	"log"
 	"strings"
@@ -89,12 +92,22 @@ func boolPtr(b bool) *bool { return &b }
 
 // Answer from Gemini api
 func (c *Client) streamGemini(prompt string) {
-	ctx := context.Background()
-	start := time.Now()
+	// Root span
+	tracer := otel.Tracer("realtimechat")
+	ctx, span := tracer.Start(context.Background(), "streamGemini")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("room", c.room.name),
+		attribute.String("user", c.name),
+		attribute.String("prompt", prompt),
+	)
 	streamId := fmt.Sprintf("gemini-%d", time.Now().UnixNano())
 
 	// Load chat history from MongoDB
+	_, histSpan := tracer.Start(ctx, "load_history_mongodb")
 	history, err := database.GetMessages(c.room.name)
+	histSpan.End()
 	if err != nil {
 		log.Println("Failed to load history:", err)
 	}
@@ -122,9 +135,13 @@ func (c *Client) streamGemini(prompt string) {
 	}
 
 	var fullText strings.Builder
+	start := time.Now()
 
 	// Tool calling loop
 	for {
+		// Child span — Gemini API call
+		_, geminiSpan := tracer.Start(ctx, "gemini_api_call")
+
 		resp, err := geminiClient.Models.GenerateContent(
 			ctx,
 			"gemini-3-flash-preview",
@@ -132,6 +149,9 @@ func (c *Client) streamGemini(prompt string) {
 			config,
 		)
 		if err != nil {
+			geminiSpan.RecordError(err)
+			geminiSpan.SetStatus(codes.Error, err.Error())
+			geminiSpan.End()
 			log.Println("Gemini error:", err)
 			break
 		}
@@ -151,40 +171,49 @@ func (c *Client) streamGemini(prompt string) {
 			hasFunctionCall = true
 			toolName := part.FunctionCall.Name
 			args := part.FunctionCall.Args
-			log.Printf("Gemini calls tool: %s with args: %v\n", toolName, args)
+			// Child span — Tool execution
+			_, toolSpan := tracer.Start(ctx, "tool_call_"+toolName)
+			toolSpan.SetAttributes(attribute.String("tool", toolName))
 
 			var toolResult string
 			switch toolName {
 			case "search_web":
 				query, _ := args["query"].(string)
+				toolSpan.SetAttributes(attribute.String("query", query))
 				toolResult, err = mcp.SearchWeb(query)
 				if err != nil {
+					toolSpan.RecordError(err)
 					toolResult = "Web search failed: " + err.Error()
 				}
-				log.Println("Web search result:", toolResult)
-
 			case "search_documents":
 				query, _ := args["query"].(string)
+				toolSpan.SetAttributes(attribute.String("query", query))
 
 				queryEmbedding, err := rag.EmbedQuery(ctx, geminiClient, query)
 				if err != nil {
+					toolSpan.RecordError(err)
 					toolResult = "Document search failed: " + err.Error()
 					break
 				}
 
 				chunks, err := rag.SearchChunks(ctx, queryEmbedding, c.room.name, 5)
 				if err != nil {
+					toolSpan.RecordError(err)
 					toolResult = "Document search failed: " + err.Error()
 					break
 				}
 
+				toolSpan.SetAttributes(attribute.Int("chunks_found", len(chunks)))
+
 				if len(chunks) == 0 {
-					toolResult = "No relevant documents found for this room."
+					toolResult = "No relevant documents found."
 				} else {
 					toolResult = "Document context:\n\n" + strings.Join(chunks, "\n\n---\n\n")
 				}
 				log.Println("Document search found", len(chunks), "chunks")
 			}
+
+			toolSpan.End()
 
 			contents = append(contents, candidate.Content)
 			contents = append(contents, &genai.Content{
@@ -210,10 +239,22 @@ func (c *Client) streamGemini(prompt string) {
 		}
 	}
 
+	span.SetAttributes(
+		attribute.Float64("gemini_latency_seconds", time.Since(start).Seconds()),
+		attribute.Int("response_length", len(fullText.String())),
+	)
+
+	// Metrics
 	metrics.GeminiLatency.Observe(time.Since(start).Seconds())
+	finalText := fullText.String()
+	if finalText != "" {
+		metrics.AIRequestsTotal.WithLabelValues("success").Inc()
+		metrics.MessagesTotal.WithLabelValues(c.room.name, "gemini").Inc()
+	} else {
+		metrics.AIRequestsTotal.WithLabelValues("error").Inc()
+	}
 
 	// Word by word streaming
-	finalText := fullText.String()
 	words := strings.Fields(finalText)
 	for i, word := range words {
 		token := word
@@ -234,13 +275,6 @@ func (c *Client) streamGemini(prompt string) {
 		}
 	}
 
-	if finalText != "" {
-		metrics.AIRequestsTotal.WithLabelValues("success").Inc()
-		metrics.MessagesTotal.WithLabelValues(c.room.name, "gemini").Inc()
-	} else {
-		metrics.AIRequestsTotal.WithLabelValues("error").Inc()
-	}
-
 	// Done signal
 	doneMsg := Message{
 		Name:      "Gemini",
@@ -252,24 +286,28 @@ func (c *Client) streamGemini(prompt string) {
 	select {
 	case c.receive <- jsonDone:
 	default:
-		log.Println("Client buffer full on done:", c.name)
 	}
 
 	// Save to MongoDB
+	_, saveSpan := tracer.Start(ctx, "save_to_mongodb")
 	go database.SaveMessage(c.room.name, c.name, prompt, "user")
 	go database.SaveMessage(c.room.name, "Gemini", finalText, "model")
+	saveSpan.End()
 
 	// Broadcast to others via Redis
+	_, redisSpan := tracer.Start(ctx, "redis_broadcast")
 	broadcastMsg := Message{
 		Name:    "Gemini",
 		Message: finalText,
 		Room:    c.name,
 	}
 	jsonBroadcast, _ := json.Marshal(broadcastMsg)
-	if err := c.room.rdb.Publish(ctx, "room:"+c.room.name, jsonBroadcast).Err(); err != nil {
+	if err := c.room.rdb.Publish(context.Background(), "room:"+c.room.name, jsonBroadcast).Err(); err != nil {
+		redisSpan.RecordError(err)
 		metrics.RedisPublishErrors.Inc()
 		log.Println("Redis publish error:", err)
 	}
+	redisSpan.End()
 }
 
 func GetGeminiClient() *genai.Client {

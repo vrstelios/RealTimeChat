@@ -8,12 +8,13 @@ import (
 )
 
 type Config struct {
-	AppAddr      string
-	RedisAddr    string
-	GeminiAPIKey string
-	MongoURI     string
-	QdrantHost   string
-	QdrantPort   int
+	AppAddr        string
+	RedisAddr      string
+	GeminiAPIKey   string
+	MongoURI       string
+	QdrantHost     string
+	QdrantPort     int
+	JaegerEndpoint string
 }
 
 func Load() *Config {
@@ -51,17 +52,23 @@ func Load() *Config {
 		log.Fatal("QDRANT_PORT environment variable is required")
 	}
 
+	jaegerEndpoint := os.Getenv("JAEGER_ENDPOINT")
+	if jaegerEndpoint == "" {
+		log.Fatal("JAEGER_ENDPOINT environment variable is required")
+	}
+
 	port, err := strconv.Atoi(QdrantPort)
 	if err != nil {
 		log.Fatal("Invalid QDRANT_PORT environment variable:", err)
 	}
 
 	return &Config{
-		AppAddr:      appAddr,
-		RedisAddr:    redisAddr,
-		GeminiAPIKey: geminiAPIKey,
-		MongoURI:     mongoURL,
-		QdrantHost:   QdrantHost,
-		QdrantPort:   port,
+		AppAddr:        appAddr,
+		RedisAddr:      redisAddr,
+		GeminiAPIKey:   geminiAPIKey,
+		MongoURI:       mongoURL,
+		QdrantHost:     QdrantHost,
+		QdrantPort:     port,
+		JaegerEndpoint: jaegerEndpoint,
 	}
 }
