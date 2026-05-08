@@ -2,6 +2,8 @@
 
 A production-grade, AI-powered real-time chat platform built with **Go**, **WebSockets**, and **Google Gemini**. Designed with horizontal scalability, persistent storage, vector search (RAG), and full observability in mind.
 
+> Project Inspiration: This project is based on the Fitness [Broadcast Server](https://roadmap.sh/projects/broadcast-server) project idea from roadmap.sh
+
 ---
 
 [![CI](https://github.com/vrstelios/RealTimeChat/actions/workflows/ci.yml/badge.svg)](https://github.com/vrstelios/RealTimeChat/actions/workflows/ci.yml)
