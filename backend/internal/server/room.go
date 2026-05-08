@@ -19,15 +19,14 @@ type Room struct {
 	name string
 	// hold all current clients in the room
 	clients map[*Client]bool
-
 	// join is a channel for all clients wishing to join this room
 	join chan *Client
-
 	// leave is channel for all clients wishing to join this room
 	leave chan *Client
-
 	// forward is a channel that holds incoming messages that should be forwarded to  other clients
 	forward chan []byte
+	// redis messages
+	redisIn chan []byte
 
 	rdb *redis.Client
 }
@@ -78,6 +77,7 @@ func newRoom(name string) *Room {
 		forward: make(chan []byte),
 		join:    make(chan *Client),
 		leave:   make(chan *Client),
+		redisIn: make(chan []byte, 256),
 		clients: make(map[*Client]bool),
 		rdb:     rdb,
 	}
@@ -90,27 +90,54 @@ func (r *Room) run() {
 		// adding a user to a channel
 		case cl := <-r.join:
 			r.clients[cl] = true
-			metrics.ActiveConnections.Inc()
+
+			mu.Lock()
 			metrics.ActiveRooms.Set(float64(len(rooms)))
+			mu.Unlock()
 			// Save username from Redis
 			ctx := context.Background()
 			r.rdb.HSet(ctx, "room:"+r.name+":users", cl.name, "online")
+			metrics.ActiveConnections.Inc()
 		// removing a user from a channel
 		case cl := <-r.leave:
 			delete(r.clients, cl)
 			close(cl.receive)
-			metrics.ActiveConnections.Dec()
+			mu.Lock()
 			metrics.ActiveRooms.Set(float64(len(rooms)))
+			mu.Unlock()
 			// Remove username from Redis
 			ctx := context.Background()
 			r.rdb.HDel(ctx, "room:"+r.name+":users", cl.name)
+			metrics.ActiveConnections.Dec()
 		// send a message to all clients in the room
 		case msg := <-r.forward:
 			ctx := context.Background()
 			if err := r.rdb.Publish(ctx, "room:"+r.name, msg).Err(); err != nil {
 				log.Println("Redis publish error:", err)
 			}
+		// subscribeRedis will send message to this channel when receive a message from Redis
+		case msg := <-r.redisIn:
+			var m Message
+			if err := json.Unmarshal(msg, &m); err != nil {
+				log.Println("Failed to unmarshal:", err)
+				continue
+			}
+			for cl := range r.clients {
+				if m.Name == "Gemini" && m.Room == cl.name {
+					continue
+				}
+				select {
+				case cl.receive <- msg:
+				default:
+					log.Printf("Client %s buffer full\n", cl.name)
+				}
+			}
+			if m.Name != "Gemini" {
+				go database.SaveMessage(r.name, m.Name, m.Message, "user")
+				metrics.MessagesTotal.WithLabelValues(r.name, "user").Inc()
+			}
 		}
+
 	}
 }
 
@@ -121,29 +148,13 @@ func (r *Room) subscribeRedis() {
 
 	ch := sub.Channel()
 	for msg := range ch {
-		var m Message
-		// If Gemini broadcast send in all, however send missing message to all clients in the room
-		if err := json.Unmarshal([]byte(msg.Payload), &m); err != nil {
-			log.Println("Failed to unmarshal message:", err)
-			continue
-		}
-
-		if m.Name != "Gemini" {
-			// Just arrived message from Redis, save it to MongoDB
-			go database.SaveMessage(r.name, m.Name, m.Message, "user")
-			metrics.MessagesTotal.WithLabelValues(r.name, "user").Inc()
-		}
-
 		// Broadcast the message to all clients in the room
 		for cl := range r.clients {
-			if m.Name == "Gemini" && m.Room == cl.name {
-				continue
-			}
 			select {
 			case cl.receive <- []byte(msg.Payload):
 			default:
 				// If the client's receive channel is full, skip sending the message
-				log.Printf("Client %s receive channel full, skipping message\n", cl.name)
+				log.Println("redisIn channel full, skipping message")
 			}
 		}
 	}
