@@ -246,13 +246,15 @@ Each AI request produces a trace:
 ![Metrics.png](images/Metrics_1.png)
 ![Metrics.png](images/Metrics_2.png)
 ```
-streamGemini                          ~3.2s
-├── load_history_mongodb               45ms
-├── gemini_api_call                   2.1s
-├── tool_call_search_documents        380ms
-├── gemini_api_call (final)           650ms
-├── save_to_mongodb                    12ms
-└── redis_broadcast                     3ms
+streamGemini (chat)                          
+├── load_history_mongodb              1.95ms
+├── save_to_mongodb                   0ms
+└── redis_broadcast                   1.38ms
+streamGemini (UploadDocument)
+├── load_history_mongodb              28.53ms
+├── tool_call_search_documents        358.65m
+├── save_to_mongodb                   0ms
+└── redis_broadcast                   1.4ms
 ```
 
 ---
