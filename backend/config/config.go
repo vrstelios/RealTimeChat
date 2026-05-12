@@ -15,6 +15,7 @@ type Config struct {
 	QdrantHost     string
 	QdrantPort     int
 	JaegerEndpoint string
+	JwtKey         []byte
 }
 
 func Load() *Config {
@@ -62,6 +63,11 @@ func Load() *Config {
 		log.Fatal("Invalid QDRANT_PORT environment variable:", err)
 	}
 
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		log.Fatal("JWT_SECRET environment variable is required")
+	}
+
 	return &Config{
 		AppAddr:        appAddr,
 		RedisAddr:      redisAddr,
@@ -70,5 +76,6 @@ func Load() *Config {
 		QdrantHost:     QdrantHost,
 		QdrantPort:     port,
 		JaegerEndpoint: jaegerEndpoint,
+		JwtKey:         []byte(secret),
 	}
 }

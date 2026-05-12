@@ -20,6 +20,23 @@ definitions:
       message:
         type: string
     type: object
+  model.Users:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+      refreshToken:
+        type: string
+      token:
+        type: string
+    type: object
 info:
   contact:
     name: DoctorVeRossi
@@ -100,6 +117,114 @@ paths:
       summary: Upload a PDF document
       tags:
       - documents
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates user and returns session cookies
+      parameters:
+      - description: User login payload
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/model.Users'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login user
+      tags:
+      - auth
+  /auth/logout:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Logout user.
+      tags:
+      - auth
+  /auth/signup:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user account with username and password
+      parameters:
+      - description: User signup payload
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/model.Users'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "406":
+          description: Not Acceptable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Signup a new user
+      tags:
+      - auth
   /room:
     get:
       description: Upgrades HTTP connection to WebSocket and joins a chat room

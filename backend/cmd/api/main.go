@@ -5,14 +5,15 @@ import (
 	_ "RealTimeChat/backend/docs"
 	"RealTimeChat/backend/internal/api"
 	"RealTimeChat/backend/internal/database"
+	"RealTimeChat/backend/internal/helpers"
 	"RealTimeChat/backend/internal/mcp"
 	"RealTimeChat/backend/internal/metrics"
+	"RealTimeChat/backend/internal/middleware"
 	"RealTimeChat/backend/internal/rag"
 	server "RealTimeChat/backend/internal/server"
 	"RealTimeChat/backend/internal/tracing"
 	"context"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"html/template"
 	"log"
@@ -46,10 +47,12 @@ func (t *templateHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // @contact.url   https://github.com/vrstelios/RealTimeChat
 // @BasePath      /
 func main() {
+	mainMux := http.NewServeMux()
+
 	rand.Seed(time.Now().UnixNano())
 	docHandler := api.NewDocumentHandler(server.GetGeminiClient())
 	// Swagger documentation http://localhost:8080/swagger/index.html
-	http.Handle("/swagger/", httpSwagger.WrapHandler)
+	mainMux.Handle("/swagger/", httpSwagger.WrapHandler)
 
 	// Initialization Tracing
 	shutdown := tracing.InitTracing("realtimechat", cfg.JaegerEndpoint)
@@ -60,11 +63,32 @@ func main() {
 	http.Handle("/", &templateHandler{filename: "frontend/web/index.html"})
 	http.Handle("/chat", &templateHandler{filename: "frontend/web/chat.html"})
 
-	// Routes Backend
-	http.HandleFunc("/room", api.RoomHandler)
-	http.HandleFunc("/api/documents/", docHandler.ListDocuments)
-	http.HandleFunc("/api/documents/upload", docHandler.UploadDocument)
-	http.Handle("/metrics", promhttp.Handler())
+	apiMux := http.NewServeMux()
+
+	// Login and Signup routes
+	apiMux.HandleFunc("/auth/signup", api.Signup)
+	apiMux.HandleFunc("/auth/login", api.Login)
+	apiMux.HandleFunc("/auth/logout", api.Logout)
+
+	// Protected routes Backend
+	protectedMux := http.NewServeMux()
+
+	protectedMux.HandleFunc("/room", api.RoomHandler)
+	protectedMux.HandleFunc("/documents/", docHandler.ListDocuments)
+	protectedMux.HandleFunc("/documents/upload", docHandler.UploadDocument)
+	//http.Handle("/metrics", promhttp.Handler())
+
+	// Middleware
+	tokenProvider := middleware.NewJWTTokenProvider()
+	protectedHandler := middleware.Authenticate(tokenProvider)(protectedMux)
+
+	// mount protected routes
+	apiMux.Handle("/room", protectedHandler)
+	apiMux.Handle("/documents/", protectedHandler)
+	//apiMux.Handle("/metrics", protectedHandler)
+
+	// mount api under /api
+	mainMux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
 	// Starting web server!
 	fmt.Println(`
@@ -73,7 +97,7 @@ func main() {
 	\ \ \__ \  \ \ \/\ \   -  \ \  __ \  \ \  _-/ \ \ \
 	 \ \_____\  \ \_____\  -   \ \_\ \_\  \ \_\    \ \_\
 	  \/_____/   \/_____/       \/_/\/_/   \/_/     \/_/`)
-	if err := http.ListenAndServe(cfg.AppAddr, nil); err != nil {
+	if err := http.ListenAndServe(cfg.AppAddr, mainMux); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -98,4 +122,6 @@ func init() {
 	}
 	// load metrics
 	metrics.Init()
+	// Load JWT key
+	helpers.InitJWT(cfg.JwtKey)
 }
