@@ -44,7 +44,7 @@ A production-grade, AI-powered real-time chat platform built with **Go**, **WebS
 - OpenTelemetry distributed tracing → Jaeger UI
   - Traces full message lifecycle: WebSocket → MongoDB → Gemini → Tools → Redis
 **CI/CD**
-- GitHub Actions on every push: `go build`, `go test`, `go vet`
+- GitHub Actions on every push: `go build`
 ---
 
 ## Tech Stack
