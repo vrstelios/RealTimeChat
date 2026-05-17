@@ -2,14 +2,24 @@ const params = new URLSearchParams(window.location.search);
 const room = params.get("room");
 const username = params.get("username");
 const useAI = params.get("useAI") === "true";
+const protocol = location.protocol === "https:" ? "wss" : "ws";
 
 if (!room || !username) {
   alert("Room or username missing. Redirecting to homepage...");
   window.location.href = "/";
 }
 
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
+}
+
+const token = getCookie('Authorization');
+
 const socket = new WebSocket(
-  `ws://${location.host}/room?room=${encodeURIComponent(room)}&name=${encodeURIComponent(username)}&useAI=${useAI}`
+  `${protocol}://${location.host}/api/room?room=${encodeURIComponent(room)}&name=${encodeURIComponent(username)}&useAI=${useAI}&token=${token}`
 );
 
 // Store reference the active streaming bubbles
@@ -119,7 +129,8 @@ fileInput.addEventListener('change', async function() {
     try {
         const response = await fetch(`/api/documents/upload?room=${encodeURIComponent(room)}`, {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'
         });
 
         const result = await response.json();

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sign Up</title>
+  <link rel="stylesheet" href="./assets/css/styles.css" />
+</head>
+<body class="index-body">
+   <script src="/assets/js/signup.js"></script>
+   <script src="/assets/js/login.js"></script>
+   <script>alreadyLoggedIn()</script>
+
+    <h1>Sing up</h1>
+
+    <div class="login-container">
+        <input id="name" type="text" placeholder="Name" required />
+        <br>
+        <input id="email" type="text" placeholder="Email" required />
+        <br>
+        <input id="password" type="text" placeholder="Password" required />
+        <br>
+        <button style="margin-top: 10px; margin-bottom: 10px; width: 270px;" onclick="signup()">Create Account</button>
+
+        <p id="error" style="color: red;"></p>
+
+        <p>Already have an account?<a href="/login">Login</a></p>
+    </div>
+</body>
+</html>

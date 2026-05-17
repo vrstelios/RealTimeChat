@@ -149,13 +149,11 @@ func (r *Room) subscribeRedis() {
 	ch := sub.Channel()
 	for msg := range ch {
 		// Broadcast the message to all clients in the room
-		for cl := range r.clients {
-			select {
-			case cl.receive <- []byte(msg.Payload):
-			default:
-				// If the client's receive channel is full, skip sending the message
-				log.Println("redisIn channel full, skipping message")
-			}
+		select {
+		case r.redisIn <- []byte(msg.Payload):
+		default:
+			// If the client's receive channel is full, skip sending the message
+			log.Println("redisIn channel full, skipping message")
 		}
 	}
 }
@@ -201,6 +199,8 @@ func (r *Room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	realRoom.join <- cl
 	defer func() { realRoom.leave <- cl }()
 
+	go cl.write()
+
 	history, err := database.GetMessages(roomName)
 	if err != nil {
 		log.Println("Failed to load history:", err)
@@ -211,14 +211,13 @@ func (r *Room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				Message: msg.Message,
 			}
 			jsonMsg, _ := json.Marshal(histMsg)
-			// Update the socket with old message before cl.write start yet
-			if err = socket.WriteMessage(websocket.TextMessage, jsonMsg); err != nil {
-				log.Println("Failed to send history:", err)
-				break
+			select {
+			case cl.receive <- jsonMsg:
+			default:
+				log.Println("History buffer full")
 			}
 		}
 	}
 
-	go cl.write()
 	cl.read()
 }

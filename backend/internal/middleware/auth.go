@@ -27,6 +27,10 @@ func Authenticate(provider TokenProvider) func(http.Handler) http.Handler {
 			}
 
 			if token == "" {
+				token = r.URL.Query().Get("token")
+			}
+
+			if token == "" {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
@@ -44,4 +48,25 @@ func Authenticate(provider TokenProvider) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func RequireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// check cookie (ή Authorization header)
+		cookie, err := r.Cookie("Authorization")
+		if err != nil || cookie.Value == "" {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		// validate token
+		_, err = NewJWTTokenProvider().Validate(cookie.Value)
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

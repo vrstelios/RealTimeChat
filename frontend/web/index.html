@@ -5,20 +5,23 @@
   <title>Select a Chat Room</title>
   <link rel="stylesheet" href="/assets/css/styles.css" />
 </head>
+
 <body class="index-body">
   <h1>Join a Chat Room</h1>
+
   <form action="/chat" method="get">
     <input type="text" name="room" placeholder="Enter channel name..." required />
     <input type="text" name="username" placeholder="Enter your name..." required />
 
-    <label  style="padding-bottom: 20px">
+    <label style="padding-bottom: 20px">
       <span>Do you want to use AI?</span>
       <input type="checkbox" name="useAI" value="true" />
     </label>
 
-    <button type="submit">Join</button>
-  </form>
+    <button style="margin-bottom: 20px" type="submit">Join</button>
 
-  <script src="/assets/js/index.js"></script>
+    <button type="button" onclick="logout()">Logout</button>
+  </form>
+  <script src="/assets/js/login.js"></script>
 </body>
 </html>

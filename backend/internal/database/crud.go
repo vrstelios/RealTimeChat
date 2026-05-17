@@ -218,6 +218,6 @@ func PutUser(userId bson.ObjectID, updates model.Users) error {
 		return errors.New("user not found")
 	}
 
-	log.Printf("User updated: %s\n", userId)
+	//log.Printf("User updated: %s\n", userId)
 	return nil
 }

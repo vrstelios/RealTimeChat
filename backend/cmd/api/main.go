@@ -10,7 +10,7 @@ import (
 	"RealTimeChat/backend/internal/metrics"
 	"RealTimeChat/backend/internal/middleware"
 	"RealTimeChat/backend/internal/rag"
-	server "RealTimeChat/backend/internal/server"
+	"RealTimeChat/backend/internal/server"
 	"RealTimeChat/backend/internal/tracing"
 	"context"
 	"fmt"
@@ -45,7 +45,7 @@ func (t *templateHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // @description   This is a real-time chat service API.
 // @contact.name  DoctorVeRossi
 // @contact.url   https://github.com/vrstelios/RealTimeChat
-// @BasePath      /
+// @BasePath      /api
 func main() {
 	mainMux := http.NewServeMux()
 
@@ -59,33 +59,37 @@ func main() {
 	defer shutdown(context.Background())
 
 	// Design Frontend
-	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("frontend/web/assets"))))
-	http.Handle("/", &templateHandler{filename: "frontend/web/index.html"})
-	http.Handle("/chat", &templateHandler{filename: "frontend/web/chat.html"})
+	mainMux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("frontend/web/assets"))))
+	mainMux.Handle("/login", &templateHandler{filename: "frontend/web/login.html"})
+	mainMux.Handle("/signup", &templateHandler{filename: "frontend/web/signup.html"})
+	authPages := middleware.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/":
+			http.ServeFile(w, r, "frontend/web/index.html")
+		case "/chat":
+			http.ServeFile(w, r, "frontend/web/chat.html")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	mainMux.Handle("/", authPages)
+	mainMux.Handle("/chat", authPages)
 
 	apiMux := http.NewServeMux()
 
-	// Login and Signup routes
+	// public Login/Signup routes
 	apiMux.HandleFunc("/auth/signup", api.Signup)
 	apiMux.HandleFunc("/auth/login", api.Login)
 	apiMux.HandleFunc("/auth/logout", api.Logout)
 
-	// Protected routes Backend
-	protectedMux := http.NewServeMux()
-
-	protectedMux.HandleFunc("/room", api.RoomHandler)
-	protectedMux.HandleFunc("/documents/", docHandler.ListDocuments)
-	protectedMux.HandleFunc("/documents/upload", docHandler.UploadDocument)
-	//http.Handle("/metrics", promhttp.Handler())
-
 	// Middleware
 	tokenProvider := middleware.NewJWTTokenProvider()
-	protectedHandler := middleware.Authenticate(tokenProvider)(protectedMux)
 
-	// mount protected routes
-	apiMux.Handle("/room", protectedHandler)
-	apiMux.Handle("/documents/", protectedHandler)
-	//apiMux.Handle("/metrics", protectedHandler)
+	// Protected routes
+	apiMux.Handle("/room", middleware.Authenticate(tokenProvider)(http.HandlerFunc(api.RoomHandler)))
+	apiMux.Handle("/documents/upload", middleware.Authenticate(tokenProvider)(http.HandlerFunc(docHandler.UploadDocument)))
+	apiMux.Handle("/documents", middleware.Authenticate(tokenProvider)(http.HandlerFunc(docHandler.ListDocuments)))
+	apiMux.Handle("/auth/me", middleware.Authenticate(tokenProvider)(http.HandlerFunc(api.MeHandler)))
 
 	// mount api under /api
 	mainMux.Handle("/api/", http.StripPrefix("/api", apiMux))

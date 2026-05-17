@@ -1,6 +1,7 @@
 package api
 
 import (
+	"RealTimeChat/backend/internal/helpers"
 	"RealTimeChat/backend/internal/server"
 	"net/http"
 )
@@ -16,17 +17,22 @@ import (
 // @Failure 500 {string} string
 // @Router /room [get]
 func RoomHandler(w http.ResponseWriter, r *http.Request) {
+	//userId := r.Context().Value(helpers.CtxUserId)
+	//email := r.Context().Value(helpers.CtxEmail)
+
 	roomName := r.URL.Query().Get("room")
 	if len(roomName) == 0 {
-		http.Error(w, "Room name required!", http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "room name required")
 		return
 	}
 
 	userName := r.URL.Query().Get("name")
 	if len(userName) == 0 {
-		http.Error(w, "User name required!", http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "user name required")
 		return
 	}
+
+	//log.Printf("User connected — room: %s, user: %s, userId: %v, email: %s\n", roomName, userName, userId, email)
 
 	realRoom := server.GetRoom(roomName)
 	realRoom.ServeHTTP(w, r)

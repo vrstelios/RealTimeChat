@@ -2,6 +2,7 @@ package api
 
 import (
 	"RealTimeChat/backend/internal/database"
+	"RealTimeChat/backend/internal/helpers"
 	"RealTimeChat/backend/internal/metrics"
 	"RealTimeChat/backend/internal/rag"
 	"RealTimeChat/backend/internal/type/model"
@@ -39,13 +40,13 @@ func NewDocumentHandler(client *genai.Client) *DocumentHandler {
 func (h *DocumentHandler) UploadDocument(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		helpers.WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	room := r.URL.Query().Get("room")
 	if room == "" {
-		http.Error(w, "room is required", http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "room is required")
 		return
 	}
 
@@ -54,52 +55,51 @@ func (h *DocumentHandler) UploadDocument(w http.ResponseWriter, r *http.Request)
 
 	// Parse multipart form — max 32MB
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		http.Error(w, "Failed to parse multipart form: "+err.Error(), http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "Failed to parse multipart form: "+err.Error())
 		return
 	}
 
 	// Get the uploaded file
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		http.Error(w, "file is required", http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "file is required")
 		return
 	}
 	defer file.Close()
 
 	// Validate file type (basic check)
 	if filepath.Ext(header.Filename) != ".pdf" {
-		http.Error(w, "only PDF files allowed", http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "only PDF files allowed")
 		return
 	}
 
 	tmpFile, err := os.CreateTemp("", "upload-*.pdf")
 	if err != nil {
-		http.Error(w, "failed to create temp file", http.StatusInternalServerError)
+		helpers.WriteJSONError(w, http.StatusInternalServerError, "failed to create temp file")
 		return
 	}
 	defer os.Remove(tmpFile.Name())
 	defer tmpFile.Close()
 
 	if _, err = io.Copy(tmpFile, file); err != nil {
-		http.Error(w, "failed to save file", http.StatusInternalServerError)
+		helpers.WriteJSONError(w, http.StatusInternalServerError, "failed to save file")
 		return
 	}
 
 	text, err := rag.ParsePDFToChunks(tmpFile.Name())
 	if err != nil {
-		log.Println("PDF parse error:", err)
-		http.Error(w, "Failed to parse PDF", http.StatusInternalServerError)
+		helpers.WriteJSONError(w, http.StatusInternalServerError, "Failed to parse PDF")
 		return
 	}
 
 	if text == "" {
-		http.Error(w, "empty pdf", http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "empty pdf")
 		return
 	}
 
 	chunks := rag.ChunkText(text, room, header.Filename)
 	if len(chunks) == 0 {
-		http.Error(w, "No content extracted from PDF", http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "No content extracted from PDF")
 		return
 	}
 
@@ -107,8 +107,8 @@ func (h *DocumentHandler) UploadDocument(w http.ResponseWriter, r *http.Request)
 
 	embeddings, err := rag.EmbedChunksWithRetry(ctx, h.geminiClient, chunks)
 	if err != nil {
-		log.Printf("embedding error: %v", err)
-		http.Error(w, "embedding failed", http.StatusInternalServerError)
+		//log.Printf("embedding error: %v", err)
+		helpers.WriteJSONError(w, http.StatusInternalServerError, "Failed to generate embeddings")
 		return
 	}
 
@@ -118,7 +118,7 @@ func (h *DocumentHandler) UploadDocument(w http.ResponseWriter, r *http.Request)
 
 	if err = rag.StoreChunks(ctx, chunks, embeddings); err != nil {
 		log.Printf("store error: %v", err)
-		http.Error(w, "store failed", http.StatusInternalServerError)
+		helpers.WriteJSONError(w, http.StatusInternalServerError, "Failed to store document chunks")
 		return
 	}
 
@@ -159,20 +159,20 @@ func (h *DocumentHandler) UploadDocument(w http.ResponseWriter, r *http.Request)
 // @Router /api/documents/ [get]
 func (h *DocumentHandler) ListDocuments(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		helpers.WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	room := r.URL.Query().Get("room")
 	if room == "" {
-		http.Error(w, "room is required", http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "room is required")
 		return
 	}
 
 	docs, err := database.GetDocuments(room)
 	if err != nil {
-		log.Println("MongoDB get documents error:", err)
-		http.Error(w, "Failed to retrieve documents", http.StatusInternalServerError)
+		//log.Println("MongoDB get documents error:", err)
+		helpers.WriteJSONError(w, http.StatusInternalServerError, "Failed to retrieve documents")
 		return
 	}
 

@@ -34,26 +34,26 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	// Get user input
 	err := json.NewDecoder(r.Body).Decode(&userBody)
 	if err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if len(userBody.Name) == 0 || len(userBody.Email) == 0 {
-		http.Error(w, "missing required fields", http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "missing required fields")
 		return
 	}
 	if len(userBody.Password) < 8 {
-		http.Error(w, "password must be at least 8 characters", http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "password must be at least 8 characters")
 		return
 	}
 
 	user, err := database.GetUser(bson.ObjectID{}, userBody.Email)
 	if err != nil {
-		http.Error(w, "database error", http.StatusInternalServerError)
+		helpers.WriteJSONError(w, http.StatusInternalServerError, "database error")
 		return
 	}
 	if len(user) > 0 {
-		http.Error(w, "user already exists", http.StatusConflict)
+		helpers.WriteJSONError(w, http.StatusConflict, "user already exists")
 		return
 	}
 
@@ -70,7 +70,7 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 
 	err = database.PostUser(nUser)
 	if err != nil {
-		http.Error(w, "failed to create user", http.StatusInternalServerError)
+		helpers.WriteJSONError(w, http.StatusInternalServerError, "failed to create user")
 		return
 	}
 
@@ -96,7 +96,7 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 // @Router /auth/login [post]
 func Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		helpers.WriteJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
@@ -105,34 +105,34 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	userPayload := model.Users{}
 	err := json.NewDecoder(r.Body).Decode(&userPayload)
 	if err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if userPayload.Email == "" || userPayload.Password == "" {
-		http.Error(w, "missing credentials", http.StatusBadRequest)
+		helpers.WriteJSONError(w, http.StatusBadRequest, "missing credentials")
 		return
 	}
 
 	user, err := database.GetUser(bson.ObjectID{}, userPayload.Email)
 	if err != nil {
-		http.Error(w, "database error", http.StatusInternalServerError)
+		helpers.WriteJSONError(w, http.StatusInternalServerError, "database error")
 		return
 	}
 	if len(user) == 0 {
-		http.Error(w, "invalid credentials", http.StatusUnauthorized)
+		helpers.WriteJSONError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
 
 	passwordIsValid, err := helpers.VerifyPassword(user[0].Password, userPayload.Password)
 	if err != nil || !passwordIsValid {
-		http.Error(w, "invalid credentials!", http.StatusUnauthorized)
+		helpers.WriteJSONError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
 
 	token, refreshToken := helpers.GenerateToken(user[0].Email, user[0].Id)
 	if err := helpers.UpdatedAllToken(token, refreshToken, user[0].Id); err != nil {
-		http.Error(w, "failed to update tokens", http.StatusInternalServerError)
+		helpers.WriteJSONError(w, http.StatusInternalServerError, "failed to update tokens")
 		return
 	}
 
@@ -155,7 +155,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(map[string]any{
 		"message": "login successful",
-		"token":   token,
+		//"token":   token,
 	})
 }
 
