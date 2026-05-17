@@ -48,7 +48,7 @@ A production-grade, AI-powered real-time chat platform built with **Go**, **WebS
 ---
 
 ## Tech Stack
- 
+ Documentation: Swagger / OpenAPI
 | Layer | Technology |
 |---|---|
 | Language | Go 1.24 |
@@ -61,6 +61,7 @@ A production-grade, AI-powered real-time chat platform built with **Go**, **WebS
 | Tracing | OpenTelemetry + Jaeger |
 | CI | GitHub Actions |
 | Infrastructure | Docker Compose |
+| Documentation | Swagger/OpenAPI |
  
 ---
 
@@ -205,7 +206,14 @@ curl "http://localhost:8080/api/documents?room=room1"
 ```
 
 ---
- 
+
+ ### Swagger Documentation
+
+The API is fully documented using Swagger/OpenAPI 3.0. Once the server is running, you can access:
+- Swagger UI: `http://localhost:8080/swagger/index.html`
+- OpenAPI JSON: http://localhost:8080/swagger/doc.json
+- OpenAPI YAML: Available in docs/swagger.yaml
+
 ## API Reference
  
 | Method | Endpoint | Description |
