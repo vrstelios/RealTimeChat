@@ -25,6 +25,7 @@ A production-grade, AI-powered real-time chat platform built with **Go**, **WebS
 - Redis Pub/Sub for cross-server message broadcasting
 - Horizontal scaling ready — multiple server instances share state via Redis
 - User Authentication: Secure JWT-based login & signup
+- **Graceful Shutdown:** Cleans up active connections and state on `SIGINT`/`SIGTERM` signals. It stops accepting new HTTP requests, sends a WebSocket Close Frame (`1001 CloseGoingAway`) to active clients, and flushes user state from Redis to prevent "zombie" entries.
 **AI Integration (Google Gemini)**
 - Streaming responses token-by-token (typing effect)
 - Function Calling / MCP pattern with two tools:
@@ -183,7 +184,7 @@ This starts:
 ### 4. Run the application
  
 ```bash
-go run cmd/web/main.go
+go run backend/cmd/api/main.go
 ```
 
 The server starts at `http://localhost:8080`.
@@ -309,6 +310,17 @@ User asks question
     → Gemini answers based on document
 ```
  
+### Graceful Shutdown Flow
+```
+OS Signal (SIGINT/SIGTERM) received
+  → Stop HTTP server from accepting new connections (srv.Shutdown)
+  → Trigger room context cancellation (room.cancelFn)
+  → Close background loops & stop Redis subscriptions
+  → Broadcast WebSocket Close Frame (1001 Going Away) to all active clients
+  → Flush local session state from Redis (HDel keys)
+  → Close Tracing connection (Jaeger)
+  → Clean process exit (Code 0)
+```
 ---
 
 ### Author

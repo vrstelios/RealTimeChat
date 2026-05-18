@@ -13,13 +13,17 @@ import (
 	"RealTimeChat/backend/internal/server"
 	"RealTimeChat/backend/internal/tracing"
 	"context"
+	"errors"
 	"fmt"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"html/template"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -94,16 +98,49 @@ func main() {
 	// mount api under /api
 	mainMux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
-	// Starting web server!
-	fmt.Println(`
-	 ______     ______         ______     ______   __
-	/\  ___\   /\  __ \       /\  __ \   /\  == \ /\ \
-	\ \ \__ \  \ \ \/\ \   -  \ \  __ \  \ \  _-/ \ \ \
-	 \ \_____\  \ \_____\  -   \ \_\ \_\  \ \_\    \ \_\
-	  \/_____/   \/_____/       \/_/\/_/   \/_/     \/_/`)
-	if err := http.ListenAndServe(cfg.AppAddr, mainMux); err != nil {
-		log.Fatal(err)
+	srv := &http.Server{
+		Addr:    cfg.AppAddr,
+		Handler: mainMux,
 	}
+	shutdownChan := make(chan os.Signal, 1)
+	signal.Notify(shutdownChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+
+	// Starting web server!
+	go func() {
+		fmt.Println(`
+     ______     ______         ______     ______   __
+    /\  ___\   /\  __ \       /\  __ \   /\  == \ /\ \
+    \ \ \__ \  \ \ \/\ \   -  \ \  __ \  \ \  _-/ \ \ \
+     \ \_____\  \ \_____\  -   \ \_\ \_\  \ \_\    \ \_\
+      \/_____/   \/_____/       \/_/\/_/   \/_/     \/_/`)
+
+		log.Printf("Starting web server on %s...", cfg.AppAddr)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("Server forced to shutdown unexpectedly: %v", err)
+		}
+	}()
+
+	sig := <-shutdownChan
+	log.Printf("Shutdown signal [%v] received. Initiating graceful shutdown...", sig)
+
+	// --- GRACEFUL SHUTDOWN ---
+
+	// Timeout 10 second in server in order completed HTTP requests
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	log.Println("Stopping HTTP server from accepting new connections...")
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("HTTP server Shutdown forced failure: %v", err)
+	} else {
+		log.Println("HTTP server stopped successfully.")
+	}
+
+	// Close WebSocket connections, The rooms and clean-up Redis
+	log.Println("Cleaning up active chat rooms, clients and Redis state...")
+	server.ShutdownRooms()
+
+	log.Println("Server exited cleanly. Code deployed safely!")
 }
 
 func init() {

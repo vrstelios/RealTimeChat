@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -29,12 +30,17 @@ type Room struct {
 	redisIn chan []byte
 
 	rdb *redis.Client
+
+	// Check shutdown per room
+	ctx      context.Context
+	cancelFn context.CancelFunc
 }
 
 var (
-	rooms = make(map[string]*Room)
-	mu    sync.Mutex
-	rdb   *redis.Client
+	rooms     = make(map[string]*Room)
+	mu        sync.Mutex
+	rdb       *redis.Client
+	globalCtx context.Context
 )
 
 func InitRedis(addr string) {
@@ -72,21 +78,71 @@ func GetRoom(name string) *Room {
 }
 
 func newRoom(name string) *Room {
+	// Create a dedicated context for each room, parent the background
+	roomCtx, cancel := context.WithCancel(context.Background())
+
 	return &Room{
-		name:    name,
-		forward: make(chan []byte),
-		join:    make(chan *Client),
-		leave:   make(chan *Client),
-		redisIn: make(chan []byte, 256),
-		clients: make(map[*Client]bool),
-		rdb:     rdb,
+		name:     name,
+		forward:  make(chan []byte),
+		join:     make(chan *Client),
+		leave:    make(chan *Client),
+		redisIn:  make(chan []byte, 256),
+		clients:  make(map[*Client]bool),
+		rdb:      rdb,
+		ctx:      roomCtx,
+		cancelFn: cancel,
 	}
+}
+
+func ShutdownRooms() {
+	mu.Lock()
+	defer mu.Unlock()
+
+	log.Printf("Shutting down %d active rooms...", len(rooms))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var wg sync.WaitGroup
+
+	for name, r := range rooms {
+		wg.Add(1)
+		go func(room *Room, roomName string) {
+			defer wg.Done()
+
+			room.cancelFn()
+
+			// Clean up Redis for room
+			room.rdb.HDel(ctx, "rooms", roomName)
+			room.rdb.Del(ctx, "room:"+roomName+":users")
+
+			for cl := range room.clients {
+				// Send WebSocket Close Frame
+				err := cl.socket.WriteControl(
+					websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.CloseGoingAway, "Server is shutting down"),
+					time.Now().Add(1*time.Second),
+				)
+				if err != nil {
+					log.Printf("Failed to send close message to %s: %v", cl.name, err)
+				}
+				cl.socket.Close()
+			}
+		}(r, name)
+	}
+
+	wg.Wait()
+	log.Println("All rooms and Redis states cleaned up successfully.")
 }
 
 // Each room is a separate thread that should be run independently (but as long as the main server is running)
 func (r *Room) run() {
 	for {
 		select {
+		// If cancelled leave the loop
+		case <-r.ctx.Done():
+
+			log.Printf("Room loop %s stopped due to shutdown", r.name)
+			return
 		// adding a user to a channel
 		case cl := <-r.join:
 			r.clients[cl] = true
@@ -100,15 +156,17 @@ func (r *Room) run() {
 			metrics.ActiveConnections.Inc()
 		// removing a user from a channel
 		case cl := <-r.leave:
-			delete(r.clients, cl)
-			close(cl.receive)
-			mu.Lock()
-			metrics.ActiveRooms.Set(float64(len(rooms)))
-			mu.Unlock()
-			// Remove username from Redis
-			ctx := context.Background()
-			r.rdb.HDel(ctx, "room:"+r.name+":users", cl.name)
-			metrics.ActiveConnections.Dec()
+			if _, ok := r.clients[cl]; ok {
+				delete(r.clients, cl)
+				close(cl.receive)
+				mu.Lock()
+				metrics.ActiveRooms.Set(float64(len(rooms)))
+				mu.Unlock()
+				// Remove username from Redis
+				ctx := context.Background()
+				r.rdb.HDel(ctx, "room:"+r.name+":users", cl.name)
+				metrics.ActiveConnections.Dec()
+			}
 		// send a message to all clients in the room
 		case msg := <-r.forward:
 			ctx := context.Background()
@@ -147,13 +205,22 @@ func (r *Room) subscribeRedis() {
 	defer sub.Close()
 
 	ch := sub.Channel()
-	for msg := range ch {
+	for {
 		// Broadcast the message to all clients in the room
 		select {
-		case r.redisIn <- []byte(msg.Payload):
-		default:
-			// If the client's receive channel is full, skip sending the message
-			log.Println("redisIn channel full, skipping message")
+		case <-r.ctx.Done():
+			log.Printf("Redis subscription for room %s stopped", r.name)
+			return
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
+			select {
+			case r.redisIn <- []byte(msg.Payload):
+			default:
+				// If the client's receive channel is full, skip sending the message
+				log.Println("redisIn channel full, skipping message")
+			}
 		}
 	}
 }
@@ -181,6 +248,12 @@ func (r *Room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	useAI := req.URL.Query().Get("useAI") == "true"
 	realRoom := GetRoom(roomName)
 
+	// Check if server close already
+	if realRoom.ctx.Err() != nil {
+		http.Error(w, "Server is shutting down", http.StatusServiceUnavailable)
+		return
+	}
+
 	// Create socket
 	socket, err := upGrader.Upgrade(w, req, nil)
 	if err != nil {
@@ -197,7 +270,14 @@ func (r *Room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	realRoom.join <- cl
-	defer func() { realRoom.leave <- cl }()
+	defer func() {
+		select {
+		case <-realRoom.ctx.Done():
+			return
+		default:
+			realRoom.leave <- cl
+		}
+	}()
 
 	go cl.write()
 
