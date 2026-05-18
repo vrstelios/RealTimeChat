@@ -1,4 +1,4 @@
-basePath: /
+basePath: /api
 definitions:
   model.Document:
     properties:
@@ -176,6 +176,27 @@ paths:
               type: string
             type: object
       summary: Logout user.
+      tags:
+      - auth
+  /auth/me:
+    get:
+      consumes:
+      - application/json
+      description: Returns the authenticated user's info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get current user
       tags:
       - auth
   /auth/signup:

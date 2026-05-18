@@ -24,6 +24,7 @@ A production-grade, AI-powered real-time chat platform built with **Go**, **WebS
 - WebSocket-based chat with multiple rooms
 - Redis Pub/Sub for cross-server message broadcasting
 - Horizontal scaling ready — multiple server instances share state via Redis
+- User Authentication: Secure JWT-based login & signup
 **AI Integration (Google Gemini)**
 - Streaming responses token-by-token (typing effect)
 - Function Calling / MCP pattern with two tools:
@@ -48,7 +49,6 @@ A production-grade, AI-powered real-time chat platform built with **Go**, **WebS
 ---
 
 ## Tech Stack
- Documentation: Swagger / OpenAPI
 | Layer | Technology |
 |---|---|
 | Language | Go 1.24 |
@@ -62,6 +62,7 @@ A production-grade, AI-powered real-time chat platform built with **Go**, **WebS
 | CI | GitHub Actions |
 | Infrastructure | Docker Compose |
 | Documentation | Swagger/OpenAPI |
+| Middleware | JWT Authentication |
  
 ---
 
@@ -83,15 +84,23 @@ A production-grade, AI-powered real-time chat platform built with **Go**, **WebS
 │   └── internal/
 │        ├── api/         
 │        │    ├── handler_chat.go     # WebSocket handlers for chat rooms
-│        │    └── handler_document.go # API handlers for document upload and search
+│        │    ├── handler_document.go # API handlers for document upload and search
+│        │    ├── handler_me.go       # API handlers for user authentication (signup/login)
+│        │    └── handler_user.go     # API handlers for user profile management
 │        ├── database/         
 │        │    ├── connMogno.go        # MongoDB connection and operations
 │        │    └── crud.go             # CRUD operations for messages and rooms
+│        ├── helpers/         
+│        │    ├── errors.go           # Custom error types and handling logic
+│        │    └── token.go            # Include tools for password/token
 │        ├── mcp/         
 │        │    ├── search.go           # Web search tool for Gemini
 │        │    └── tool.go             # MCP tool definitions
 │        ├── metrics/   
 │        │    └── metrics.go          # Prometheus metrics setup
+│        ├── middleware/         
+│        │    ├── auth.go             # Custom error types and handling logic
+│        │    └── token.go            # Token provider
 │        ├── rag/         
 │        │    ├── embeddings.go       # Vector DB interactions for RAG
 │        │    ├── pdf.go              # PDF processing and chunking
@@ -105,6 +114,8 @@ A production-grade, AI-powered real-time chat platform built with **Go**, **WebS
 ├── frontend/                         # Frontend assets and templates
 │   ├── assets/                       # Static files (CSS, JS)
 │   ├── index.html                    # Home page
+│   ├── login.html                    # User login page
+│   ├── signup.html                   # User signup page
 │   └── chat.html                     # Chat UI 
 ├── images/ 
 ├── go.mod                            # Go dependencies and module definition
@@ -215,22 +226,8 @@ The API is fully documented using Swagger/OpenAPI 3.0. Once the server is runnin
 - OpenAPI YAML: Available in docs/swagger.yaml
 
 ## API Reference
- 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/` | Home page |
-| `GET` | `/room` | WebSocket upgrade endpoint |
-| `POST` | `/api/documents/upload?room=` | Upload & embed a PDF |
-| `GET` | `/api/documents?room=` | List uploaded documents |
-| `GET` | `/metrics` | Prometheus metrics |
- 
-### WebSocket Query Parameters
- 
-| Parameter | Type | Description |
-|---|---|---|
-| `room` | string | Room name |
-| `name` | string | Username |
-| `useAI` | bool | Enable Gemini AI |
+
+![swagger.png](images/swagger.png)
  
 ---
 
