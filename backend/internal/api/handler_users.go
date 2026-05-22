@@ -3,6 +3,7 @@ package api
 import (
 	"RealTimeChat/backend/internal/database"
 	"RealTimeChat/backend/internal/helpers"
+	"RealTimeChat/backend/internal/metrics"
 	"RealTimeChat/backend/internal/type/model"
 	"encoding/json"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -70,9 +71,11 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 
 	err = database.PostUser(nUser)
 	if err != nil {
-		helpers.WriteJSONError(w, http.StatusInternalServerError, "failed to create user")
+		metrics.UserSignups.WithLabelValues("error").Inc()
+		http.Error(w, "failed to create user", http.StatusInternalServerError)
 		return
 	}
+	metrics.UserSignups.WithLabelValues("success").Inc()
 
 	// Response
 	w.WriteHeader(http.StatusCreated)
@@ -126,9 +129,11 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	passwordIsValid, err := helpers.VerifyPassword(user[0].Password, userPayload.Password)
 	if err != nil || !passwordIsValid {
-		helpers.WriteJSONError(w, http.StatusUnauthorized, "invalid credentials")
+		metrics.UserLogins.WithLabelValues("failure").Inc()
+		http.Error(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}
+	metrics.UserLogins.WithLabelValues("success").Inc()
 
 	token, refreshToken := helpers.GenerateToken(user[0].Email, user[0].Id)
 	if err := helpers.UpdatedAllToken(token, refreshToken, user[0].Id); err != nil {

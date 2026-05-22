@@ -3,67 +3,98 @@ package metrics
 import "github.com/prometheus/client_golang/prometheus"
 
 var (
-	// Business Metrics
 	MessagesTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "chat_messages_total",
-			Help: "Total number of messages sent",
+			Help: "Total messages sent",
 		},
 		[]string{"room", "type"}, // type = "user" ή "gemini"
 	)
 
-	ActiveConnections = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "chat_active_connections",
-			Help: "Number of active WebSocket connections",
-		},
-	)
+	ActiveConnections = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "chat_active_connections",
+		Help: "Active WebSocket connections",
+	})
 
-	ActiveRooms = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "chat_active_rooms",
-			Help: "Number of active chat rooms",
-		},
-	)
+	ActiveRooms = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "chat_active_rooms",
+		Help: "Active chat rooms",
+	})
 
 	AIRequestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "chat_ai_requests_total",
-			Help: "Total number of Gemini AI requests",
+			Help: "Total Gemini AI requests",
 		},
-		[]string{"status"}, // status = "success" or "error"
+		[]string{"status"},
 	)
 
 	DocumentsUploaded = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "chat_documents_uploaded_total",
-			Help: "Total number of PDF documents uploaded",
+			Help: "Total PDFs uploaded",
 		},
 		[]string{"room"},
 	)
 
-	// Technical Metrics
-	GeminiLatency = prometheus.NewHistogram(
-		prometheus.HistogramOpts{
-			Name:    "chat_gemini_latency_seconds",
-			Help:    "Gemini API response latency in seconds",
-			Buckets: []float64{0.5, 1, 2, 5, 10, 20, 30},
-		},
-	)
+	GeminiLatency = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    "chat_gemini_latency_seconds",
+		Help:    "Gemini API latency",
+		Buckets: []float64{0.5, 1, 2, 5, 10, 20, 30},
+	})
 
 	WebSocketErrors = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "chat_websocket_errors_total",
-			Help: "Total number of WebSocket errors",
+			Help: "WebSocket errors",
 		},
 		[]string{"type"},
 	)
 
-	RedisPublishErrors = prometheus.NewCounter(
+	RedisPublishErrors = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "chat_redis_publish_errors_total",
+		Help: "Redis publish errors",
+	})
+
+	UserSignups = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "chat_redis_publish_errors_total",
-			Help: "Total number of Redis publish errors",
+			Name: "chat_user_signups_total",
+			Help: "Total user signups",
 		},
+		[]string{"status"},
+	)
+
+	UserLogins = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "chat_user_logins_total",
+			Help: "Total user logins",
+		},
+		[]string{"status"},
+	)
+
+	HTTPRequestsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "chat_http_requests_total",
+			Help: "Total HTTP requests",
+		},
+		[]string{"method", "endpoint", "status"},
+	)
+
+	HTTPDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "chat_http_duration_seconds",
+			Help:    "HTTP request duration",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"method", "endpoint"},
+	)
+
+	MongoErrors = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "chat_mongodb_errors_total",
+			Help: "MongoDB errors",
+		},
+		[]string{"operation"},
 	)
 )
 
@@ -77,5 +108,10 @@ func Init() {
 		GeminiLatency,
 		WebSocketErrors,
 		RedisPublishErrors,
+		UserSignups,
+		UserLogins,
+		HTTPRequestsTotal,
+		HTTPDuration,
+		MongoErrors,
 	)
 }

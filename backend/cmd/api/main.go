@@ -15,6 +15,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"html/template"
 	"log"
@@ -96,7 +97,8 @@ func main() {
 	apiMux.Handle("/auth/me", middleware.Authenticate(tokenProvider)(http.HandlerFunc(api.MeHandler)))
 
 	// mount api under /api
-	mainMux.Handle("/api/", http.StripPrefix("/api", apiMux))
+	mainMux.Handle("/api/", http.StripPrefix("/api", middleware.MetricsMiddleware(apiMux)))
+	mainMux.Handle("/metrics", promhttp.Handler())
 
 	srv := &http.Server{
 		Addr:    cfg.AppAddr,

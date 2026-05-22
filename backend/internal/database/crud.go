@@ -1,6 +1,7 @@
 package database
 
 import (
+	"RealTimeChat/backend/internal/metrics"
 	"RealTimeChat/backend/internal/type/model"
 	"context"
 	"errors"
@@ -26,6 +27,7 @@ func SaveMessage(room, name, message, role string) error {
 
 	_, err := Collection("messages").InsertOne(ctx, msg)
 	if err != nil {
+		metrics.MongoErrors.WithLabelValues("insert").Inc()
 		log.Println("Failed to save message:", err)
 		return err
 	}

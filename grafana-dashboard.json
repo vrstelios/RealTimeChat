@@ -1,0 +1,358 @@
+{
+  "title": "RealTimeChat",
+  "uid": "realtimechat",
+  "timezone": "browser",
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "panels": [
+    {
+      "id": 10,
+      "title": "User Signups & Logins",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 22, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(chat_user_signups_total{status=\"success\"}[1m]) * 60",
+          "legendFormat": "Signups/min",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "rate(chat_user_logins_total{status=\"success\"}[1m]) * 60",
+          "legendFormat": "Logins/min",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "rate(chat_user_logins_total{status=\"failure\"}[1m]) * 60",
+          "legendFormat": "Failed logins/min",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "HTTP Requests per Minute",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 22, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (endpoint) (rate(chat_http_requests_total[1m])) * 60",
+          "legendFormat": "{{endpoint}}",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "HTTP P95 Latency",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 30, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, endpoint) (rate(chat_http_duration_seconds_bucket[5m])))",
+          "legendFormat": "P95 {{endpoint}}",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "id": 1,
+      "title": "Active Connections",
+      "type": "gauge",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        {
+          "expr": "chat_active_connections",
+          "legendFormat": "Connections",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          },
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "thresholds" }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Active Rooms",
+      "type": "stat",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        {
+          "expr": "chat_active_rooms",
+          "legendFormat": "Rooms",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "AI Requests Total",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(chat_ai_requests_total)",
+          "legendFormat": "Total",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "purple", "value": null }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Documents Uploaded",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(chat_documents_uploaded_total)",
+          "legendFormat": "Documents",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Messages per Minute",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(chat_messages_total[1m])) * 60",
+          "legendFormat": "All messages",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "sum(rate(chat_messages_total{type=\"user\"}[1m])) * 60",
+          "legendFormat": "User messages",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "sum(rate(chat_messages_total{type=\"gemini\"}[1m])) * 60",
+          "legendFormat": "Gemini messages",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Gemini P95 Latency (seconds)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(chat_gemini_latency_seconds_bucket[5m]))",
+          "legendFormat": "P95 Latency",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "histogram_quantile(0.50, rate(chat_gemini_latency_seconds_bucket[5m]))",
+          "legendFormat": "P50 Latency",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "AI Requests — Success vs Error",
+      "type": "piechart",
+      "gridPos": { "x": 0, "y": 14, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "chat_ai_requests_total",
+          "legendFormat": "{{status}}",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "options": {
+        "pieType": "pie",
+        "legend": { "displayMode": "list", "placement": "right" },
+        "tooltip": { "mode": "single" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "WebSocket Errors",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 14, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(chat_websocket_errors_total[5m])",
+          "legendFormat": "{{type}}",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "color": { "mode": "palette-classic" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Redis Publish Errors",
+      "type": "stat",
+      "gridPos": { "x": 16, "y": 14, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "chat_redis_publish_errors_total",
+          "legendFormat": "Errors",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      }
+    }
+  ]
+}
+
+

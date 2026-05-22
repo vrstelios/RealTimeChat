@@ -44,6 +44,23 @@ type Client struct {
 
 var geminiClient *genai.Client
 
+// safeSend safely attempts to send a message to the client's receive channel.
+// It catches panics if the channel has been closed concurrently.
+func (c *Client) safeSend(msg []byte) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	select {
+	case c.receive <- msg:
+		return true
+	default:
+		log.Println("Client buffer full:", c.name)
+		return false
+	}
+}
+
 // Send messages function
 func (c *Client) read() {
 	// close the connection when we are done
@@ -115,6 +132,14 @@ func (c *Client) streamGemini(prompt string) {
 	// Build conversation history for Gemini
 	var contents []*genai.Content
 	for _, h := range history {
+		if h.Message == "" {
+			continue
+		}
+
+		if h.Role != "user" && h.Role != "model" {
+			continue
+		}
+
 		contents = append(contents, &genai.Content{
 			Role:  h.Role,
 			Parts: []*genai.Part{{Text: h.Message}},
@@ -268,11 +293,8 @@ func (c *Client) streamGemini(prompt string) {
 			StreamId:  streamId,
 		}
 		jsonMsg, _ := json.Marshal(streamMsg)
-		select {
-		case c.receive <- jsonMsg:
-		default:
-			log.Println("Client buffer full:", c.name)
-		}
+
+		c.safeSend(jsonMsg)
 	}
 
 	// Done signal
@@ -283,10 +305,7 @@ func (c *Client) streamGemini(prompt string) {
 		StreamId:  streamId,
 	}
 	jsonDone, _ := json.Marshal(doneMsg)
-	select {
-	case c.receive <- jsonDone:
-	default:
-	}
+	c.safeSend(jsonDone)
 
 	// Save to MongoDB
 	_, saveSpan := tracer.Start(ctx, "save_to_mongodb")
