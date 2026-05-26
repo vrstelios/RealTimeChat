@@ -2,28 +2,50 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Sign Up</title>
-  <link rel="stylesheet" href="./assets/css/styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RealTimeChat - Create Account</title>
+  <link rel="stylesheet" href="/assets/css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="index-body">
-   <script src="/assets/js/signup.js"></script>
-   <script src="/assets/js/login.js"></script>
-   <script>alreadyLoggedIn()</script>
+<body class="auth-layout">
 
-    <h1>Sing up</h1>
-
-    <div class="login-container">
-        <input id="name" type="text" placeholder="Name" required />
-        <br>
-        <input id="email" type="text" placeholder="Email" required />
-        <br>
-        <input id="password" type="text" placeholder="Password" required />
-        <br>
-        <button style="margin-top: 10px; margin-bottom: 10px; width: 270px;" onclick="signup()">Create Account</button>
-
-        <p id="error" style="color: red;"></p>
-
-        <p>Already have an account?<a href="/login">Login</a></p>
+  <div class="auth-container">
+    <div class="auth-header">
+      <div class="logo-dot"></div>
+      <h1>Create an account</h1>
+      <p class="auth-subtitle">Join the distributed real-time platform</p>
     </div>
+
+    <div class="auth-form">
+      <div class="input-group">
+        <label for="name">DISPLAY NAME</label>
+        <input id="name" type="text" autocomplete="name" required />
+      </div>
+
+      <div class="input-group">
+        <label for="email">EMAIL</label>
+        <input id="email" type="email" autocomplete="email" required />
+      </div>
+
+      <div class="input-group">
+        <label for="password">PASSWORD</label>
+        <input id="password" type="password" autocomplete="new-password" required />
+      </div>
+
+      <p id="error" class="error-message"></p>
+
+      <button class="btn-primary" onclick="signup()">Create Account</button>
+
+      <p class="auth-switch">
+        Already have an account? <a href="/login">Log In</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="/assets/js/signup.js"></script>
+  <script src="/assets/js/login.js"></script>
+  <script>alreadyLoggedIn()</script>
 </body>
 </html>

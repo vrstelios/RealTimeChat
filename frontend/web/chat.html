@@ -2,21 +2,79 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Chat Room</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RealTimeChat - Workspace</title>
   <link rel="stylesheet" href="/assets/css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="chat-body">
-  <header>Chat Room</header>
-  <div id="messages"></div>
+<body class="chat-layout">
 
-  <div class="chat-input">
-    <input type="file" id="fileInput" style="display: none;" />
-    <button id="uploadBtn" onclick="document.getElementById('fileInput').click();">📎</button>
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-dot"></div>
+      <h2>RealTimeChat</h2>
+    </div>
 
-    <input style="width: 100%" id="msg" type="text" placeholder="Type a message..." />
-    <button id="sendBtn">Send</button>
-  </div>
+    <div class="sidebar-content">
+      <div class="info-card">
+        <small>Active Channel</small>
+        <div id="roomName" class="highlight-text"># general</div>
+      </div>
 
+      <div class="info-card">
+        <small>Logged in as</small>
+        <div id="currentUsername" class="user-text">User</div>
+      </div>
+
+      <div class="ai-status-card" id="aiStatus">
+        <div class="ai-badge">Gemini AI Active</div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="btn-secondary" onclick="logout()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        Logout
+      </button>
+    </div>
+  </aside>
+
+  <main class="chat-main">
+    <header class="chat-header">
+      <div class="header-info">
+        <span class="channel-hashtag">#</span>
+        <h3 id="headerRoomTitle">room</h3>
+      </div>
+    </header>
+
+    <div id="messages" class="messages-container"></div>
+
+    <div id="typingIndicator" class="typing-indicator-bar"></div>
+
+    <footer class="chat-footer-area">
+      <div class="upload-preview-bar" id="uploadPreview" style="display: none;">
+        <span class="file-icon">📄</span>
+        <span id="fileNameDisplay">document.pdf</span>
+        <button id="cancelUpload" class="btn-close">×</button>
+      </div>
+
+      <div class="input-wrapper">
+        <input type="file" id="fileInput" accept="application/pdf" style="display: none;" />
+        <button id="uploadBtn" class="action-btn" title="Upload RAG Knowledge (PDF)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        </button>
+
+        <input id="msg" type="text" placeholder="Message #channel... (Type @gemini for AI if enabled)" autocomplete="off" />
+        <button id="sendBtn" class="send-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </footer>
+  </main>
+
+  <script src="/assets/js/login.js"></script>
   <script src="/assets/js/chat.js"></script>
 </body>
 </html>

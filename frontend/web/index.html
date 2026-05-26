@@ -2,26 +2,54 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Select a Chat Room</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RealTimeChat - Hub</title>
   <link rel="stylesheet" href="/assets/css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
+<body class="auth-layout">
 
-<body class="index-body">
-  <h1>Join a Chat Room</h1>
+  <div class="auth-container lobby-container">
+    <div class="auth-header">
+      <div class="logo-dot"></div>
+      <h1>Distributed Workspace</h1>
+      <p class="auth-subtitle">Enter a room channel to initialize orchestration</p>
+    </div>
 
-  <form action="/chat" method="get">
-    <input type="text" name="room" placeholder="Enter channel name..." required />
-    <input type="text" name="username" placeholder="Enter your name..." required />
+    <form action="/chat" method="get" class="auth-form">
+      <div class="input-group">
+        <label for="room">CHANNEL NAME</label>
+        <input type="text" id="room" name="room" placeholder="e.g., general, dev-ops" required />
+      </div>
 
-    <label style="padding-bottom: 20px">
-      <span>Do you want to use AI?</span>
-      <input type="checkbox" name="useAI" value="true" />
-    </label>
+      <div class="input-group">
+        <label for="username">YOUR USERNAME</label>
+        <input type="text" id="username" name="username" placeholder="e.g., Alice" required />
+      </div>
 
-    <button style="margin-bottom: 20px" type="submit">Join</button>
+      <div class="toggle-container">
+        <div class="toggle-info">
+          <span class="toggle-title">Activate Gemini AI Copilot</span>
+          <span class="toggle-desc">Enables semantic context tools & RAG workflows</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="useAI" value="true" />
+          <span class="slider round"></span>
+        </label>
+      </div>
 
-    <button type="button" onclick="logout()">Logout</button>
-  </form>
+      <div class="action-row">
+        <button type="submit" class="btn-primary">Join Room</button>
+        <button type="button" class="btn-secondary logout-btn" onclick="logout()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          Logout
+        </button>
+      </div>
+    </form>
+  </div>
+
   <script src="/assets/js/login.js"></script>
 </body>
 </html>

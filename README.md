@@ -78,6 +78,7 @@ A production-grade, AI-powered real-time chat platform engineered with **Go**, *
 │        │    └── metrics.go          # Prometheus metrics setup
 │        ├── middleware/         
 │        │    ├── auth.go             # Custom error types and handling logic
+│        │    ├── metrics.go          # Prometheus metrics middleware for HTTP handlers
 │        │    └── token.go            # Token provider
 │        ├── rag/         
 │        │    ├── embeddings.go       # Vector DB interactions for RAG
@@ -96,6 +97,11 @@ A production-grade, AI-powered real-time chat platform engineered with **Go**, *
 │   ├── signup.html                   # User signup page
 │   └── chat.html                     # Chat UI 
 ├── images/ 
+├── test/ 
+│   ├── package.json                  
+│   ├── package-lock.json    
+│   ├── TestRealTimeChat.pdf          # Sample PDF for RAG testing            
+│   └── performance-script.js         # Load testing script for performance validation
 ├── go.mod                            # Go dependencies and module definition
 ├── go.sum
 ├── .env
